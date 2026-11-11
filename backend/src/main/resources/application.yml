@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: haat-store
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/haat}
+    username: ${DB_USERNAME:haat}
+    password: ${DB_PASSWORD:}
+  flyway:
+    locations: classpath:db/migration
+  jackson:
+    time-zone: UTC
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 9MB
+  session:
+    timeout: 14d
+    jdbc:
+      initialize-schema: never
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: lax
+        max-age: 14d
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+store:
+  storage-root: ${STORAGE_ROOT:storage}
+  media-url: /media
+  delivery:
+    fee: 49
+    free-over: 1500
+    minimum-order: 300
+  slots:
+    # Two-hour delivery windows, offered for today and the next two days (Dhaka time).
+    zone: Asia/Dhaka
+    starts: [8, 10, 12, 14, 16, 18, 20]
+    length-hours: 2
+    days-ahead: 3
+    capacity: 25
+    # A slot stops taking orders this long before it starts.
+    cutoff: 2h

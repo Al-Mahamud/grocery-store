@@ -32,6 +32,19 @@ public class OrderService {
                             int discount, int deliveryFee, int total, String couponCode, List<Event> events) {
     }
 
+    /** One line in a customer's order history. */
+    /** {@code itemCount} counts units (2 × eggs = 2); {@code lineCount} counts different products. */
+    public record Summary(String number, String status, Instant placedAt, Slot slot, int itemCount, int lineCount,
+                          int total, List<String> images) {
+    }
+
+    public record History(List<Summary> items, int page, int pageSize, long total) {
+    }
+
+    /** What an earlier order held, for "order again". */
+    public record PastItem(Long packId, String name, String packLabel, int quantity) {
+    }
+
     private record Row(long id, String token, OrderView view) {
     }
 
@@ -62,6 +75,72 @@ public class OrderService {
 
     public Optional<OrderView> byId(long id) {
         return row("o.id = :v", id).map(Row::view);
+    }
+
+    /** A signed-in customer's own order. */
+    public OrderView forCustomer(long customerId, String number) {
+        return row("o.number = :v", number == null ? "" : number.trim().toUpperCase())
+                .filter(r -> ownedBy(r.id(), customerId))
+                .orElseThrow(() -> ApiException.notFound("order"))
+                .view();
+    }
+
+    public History history(long customerId, int page, int pageSize) {
+        long total = jdbc.sql("select count(*) from orders where customer_id = :c").param("c", customerId)
+                .query(Long.class).single();
+        List<Summary> items = jdbc.sql("""
+                        select o.number, o.status, o.created_at, o.slot_date, o.slot_start, o.slot_end, o.total,
+                               (select coalesce(sum(quantity), 0) from order_items where order_id = o.id),
+                               (select count(*) from order_items where order_id = o.id),
+                               array(select image_url from order_items where order_id = o.id and image_url is not null
+                                      order by id limit 4)
+                          from orders o where o.customer_id = :c
+                         order by o.created_at desc, o.id desc limit :limit offset :offset""")
+                .param("c", customerId).param("limit", pageSize).param("offset", (long) page * pageSize)
+                .query((rs, n) -> new Summary(rs.getString(1), rs.getString(2), rs.getTimestamp(3).toInstant(),
+                        new Slot(rs.getDate(4).toLocalDate(), rs.getTime(5).toLocalTime(), rs.getTime(6).toLocalTime()),
+                        rs.getInt(8), rs.getInt(9), rs.getInt(7), List.of((String[]) rs.getArray(10).getArray())))
+                .list();
+        return new History(items, page, pageSize, total);
+    }
+
+    public List<PastItem> itemsForReorder(long customerId, String number) {
+        OrderView order = forCustomer(customerId, number);
+        return jdbc.sql("""
+                        select i.pack_id, i.product_name, i.pack_label, i.quantity
+                          from order_items i join orders o on o.id = i.order_id
+                         where o.number = :n and o.customer_id = :c order by i.id""")
+                .param("n", order.number()).param("c", customerId)
+                .query((rs, n) -> new PastItem((Long) rs.getObject(1), rs.getString(2), rs.getString(3), rs.getInt(4)))
+                .list();
+    }
+
+    /**
+     * Products this customer has bought, most often bought first, each with the pack they bought
+     * most recently. Cancelled orders don't count.
+     */
+    public record Bought(long productId, long packId, int times) {
+    }
+
+    public List<Bought> bought(long customerId, int limit) {
+        return jdbc.sql("""
+                        select i.product_id,
+                               (array_agg(i.pack_id order by o.created_at desc, i.id desc)
+                                    filter (where i.pack_id is not null))[1],
+                               count(distinct o.id) as times, max(o.created_at) as last
+                          from order_items i join orders o on o.id = i.order_id
+                         where o.customer_id = :c and o.status <> 'CANCELLED' and i.product_id is not null
+                         group by i.product_id
+                        having count(i.pack_id) > 0
+                         order by times desc, last desc limit :limit""")
+                .param("c", customerId).param("limit", limit)
+                .query((rs, n) -> new Bought(rs.getLong(1), rs.getLong(2), rs.getInt(3)))
+                .list();
+    }
+
+    private boolean ownedBy(long orderId, long customerId) {
+        return jdbc.sql("select count(*) from orders where id = :id and customer_id = :c")
+                .param("id", orderId).param("c", customerId).query(Long.class).single() > 0;
     }
 
     private Optional<Row> row(String where, Object value) {

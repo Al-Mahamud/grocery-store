@@ -127,7 +127,7 @@ Cash-on-delivery orders start at PLACED.
 | 1 | Catalog backend | schema, packs with unit prices, filters, suggestions, home, demo groceries, tests | done |
 | 2 | Storefront | design system, header with live search, home, category pages, product page | done |
 | 3 | Bag and checkout | quick add, bag, coupons, minimum order, areas, slots, substitutions, COD orders, tracking | done |
-| 4 | Accounts | register/sign in, bag merge, saved addresses, order history, buy again | |
+| 4 | Accounts | register/sign in, bag merge, saved addresses, order history, buy again | done |
 | 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | |
 | 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | |
 | 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | |
@@ -146,4 +146,25 @@ Cash-on-delivery orders start at PLACED.
   Bangla names are matched with a plain "contains" search.
 - The home page is built at `next build` time and refreshed every 30 s, so the backend must be
   reachable during a production build (phase 8).
-- The account icon and footer `/pages/*` links lead nowhere until phases 4 and 7.
+- The footer `/pages/*` links lead nowhere until phase 7.
+
+### Notes from phase 4 (accounts)
+
+- Customers sign in with their mobile number and a password (BCrypt). Sessions live in PostgreSQL
+  (Spring Session); the session id changes at sign-in. After 6 wrong passwords for one number (or 30
+  from one address) in 15 minutes, sign-in pauses. The counter is in memory, which is fine for one
+  server; behind a proxy it must read the real client address (phase 8).
+- **Phone numbers are not verified yet.** Anyone can register any number, so guest orders placed
+  earlier with that number are deliberately *not* linked to the new account. Phase 7 adds an SMS
+  code at sign-up; after that, past guest orders can be linked.
+- One bag per customer, shared by every device they sign in on. At sign-in the guest bag joins it:
+  if both hold the same pack the larger quantity wins (capped at the per-order limit), and a coupon
+  carries over if the account's bag had none. Signing out leaves the bag with the account.
+- Changing the password signs out every other device.
+- Saved addresses: up to 10, one default (the first one saved). Checkout picks the default and can
+  save a new address ("Save this address to my account").
+- "Buy again" lists products from past orders (cancelled ones excluded), most often bought first,
+  with the pack bought most recently pre-selected. "Order again" raises each pack in the bag to the
+  earlier quantity within stock and limits, and lists anything sold out.
+- The phone menu, filters and bag drawers render into `<body>`: the sticky header's blur made them
+  only as tall as the header before.

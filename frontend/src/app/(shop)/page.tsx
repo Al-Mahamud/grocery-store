@@ -9,6 +9,7 @@ import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { ProductRail } from "@/components/shop/ProductRail";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { SectionHeading } from "@/components/shop/SectionHeading";
+import { BuyAgainRail } from "@/components/account/BuyAgainRail";
 
 /* eslint-disable @next/next/no-img-element */
 export default async function HomePage() {
@@ -69,6 +70,7 @@ export default async function HomePage() {
         </ul>
       </section>
 
+      <BuyAgainRail />
       <Rail title="Today's deals" note="Prices drop while stocks last" href="/deals" products={home.deals} />
       <Rail title={<>Fresh today <Leaf className="inline text-leaf" size={22} /></>} note="Arrives at our hub every morning" href="/c/fresh" products={home.fresh} />
 

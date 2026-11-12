@@ -5,7 +5,9 @@ import com.haat.store.checkout.CheckoutService.PaymentMethod;
 import com.haat.store.checkout.CheckoutService.Quote;
 import com.haat.store.checkout.CheckoutService.Substitution;
 import com.haat.store.shared.ApiException;
+import com.haat.store.customer.AddressService;
 import com.haat.store.shared.BangladeshPhone;
+import com.haat.store.shared.CurrentCustomer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -16,6 +18,7 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,27 +41,34 @@ class CheckoutController {
             @NotNull(message = "Please choose a delivery slot.") LocalTime slotStart,
             @NotNull(message = "Please tell us what to do if something is out of stock.") Substitution substitution,
             @Size(max = 500, message = "Notes can be up to 500 characters.") String note,
-            @NotNull(message = "Please choose how to pay.") PaymentMethod paymentMethod) {
+            @NotNull(message = "Please choose how to pay.") PaymentMethod paymentMethod,
+            /* Signed-in customers: keep this address for next time. */
+            Boolean saveAddress) {
     }
 
     record Placed(String number, String token, int total, String paymentUrl) {
     }
 
     private final CheckoutService checkout;
+    private final Bags bags;
+    private final AddressService addresses;
 
-    CheckoutController(CheckoutService checkout) {
+    CheckoutController(CheckoutService checkout, Bags bags, AddressService addresses) {
         this.checkout = checkout;
+        this.bags = bags;
+        this.addresses = addresses;
     }
 
     @PostMapping("/quote")
     Quote quote(HttpServletRequest request) {
-        return checkout.quote(CartCookie.read(request).orElseThrow(CartService::emptyCart));
+        return checkout.quote(bags.current(request).orElseThrow(CartService::emptyCart));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     Placed place(@Valid @RequestBody PlaceOrder body, HttpServletRequest request, HttpServletResponse response) {
-        UUID cart = CartCookie.read(request).orElseThrow(CartService::emptyCart);
+        UUID cart = bags.current(request).orElseThrow(CartService::emptyCart);
+        Optional<Long> customerId = CurrentCustomer.id();
         String phone = BangladeshPhone.normalise(body.phone()).orElseThrow(() -> new ApiException(
                 HttpStatus.BAD_REQUEST, "request.invalid", "Please check the highlighted fields.",
                 Map.of("phone", "Enter an 11-digit mobile number, like 01712345678.")));
@@ -68,8 +78,12 @@ class CheckoutController {
         Customer customer = new Customer(body.name().trim(), phone, blankToNull(body.email()), body.address().trim(),
                 body.areaId(), blankToNull(body.note()));
         CheckoutService.Placed placed = checkout.place(cart, customer, body.slotDate(), body.slotStart(),
-                body.substitution(), body.paymentMethod(), null);
-        CartCookie.clear(request, response);
+                body.substitution(), body.paymentMethod(), customerId.orElse(null));
+        if (customerId.isPresent() && Boolean.TRUE.equals(body.saveAddress())) {
+            addresses.rememberFromCheckout(customerId.get(), new AddressService.AddressInput("Home", customer.name(),
+                    phone, customer.address(), customer.areaId(), null));
+        }
+        bags.forget(request, response);
         return new Placed(placed.number(), placed.accessToken(), placed.total(), null);
     }
 

@@ -14,6 +14,8 @@ type CartContext = {
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => Promise<void>;
   refresh: () => Promise<void>;
+  /** Shows a short message at the bottom of the screen. */
+  notify: (message: string) => void;
   toast: string | null;
 };
 
@@ -85,11 +87,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       quantityOf,
       setQuantity,
       refresh,
+      notify: say,
       toast,
       applyCoupon: async (code) => setCart(await request<Cart>("POST", "/cart/coupon", { code })),
       removeCoupon: async () => setCart(await request<Cart>("DELETE", "/cart/coupon")),
     }),
-    [cart, open, quantityOf, setQuantity, refresh, toast],
+    [cart, open, quantityOf, setQuantity, refresh, say, toast],
   );
 
   return (

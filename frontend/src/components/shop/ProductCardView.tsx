@@ -9,9 +9,10 @@ import { percentOffPack, unitPriceText } from "@/lib/grocery";
 import { QuantityControl } from "@/components/cart/QuantityControl";
 
 /* eslint-disable @next/next/no-img-element -- product images are served by the backend as-is. */
-export function ProductCardView({ product }: { product: ProductCard }) {
+export function ProductCardView({ product, initialPackId, badge }: { product: ProductCard; initialPackId?: number; badge?: string }) {
   const firstInStock = product.packs.findIndex((p) => p.stock > 0);
-  const [index, setIndex] = useState(firstInStock < 0 ? 0 : firstInStock);
+  const preferred = product.packs.findIndex((p) => p.id === initialPackId && p.stock > 0);
+  const [index, setIndex] = useState(preferred >= 0 ? preferred : firstInStock < 0 ? 0 : firstInStock);
   const pack = product.packs[index];
   if (!pack) return null;
   const off = percentOffPack(pack);
@@ -26,6 +27,7 @@ export function ProductCardView({ product }: { product: ProductCard }) {
           {off ? <span className="rounded-lg bg-sun px-2 py-1 text-[0.6875rem] font-extrabold text-ink">{off}% OFF</span> : null}
           {product.organic && <span className="inline-flex items-center gap-1 rounded-lg bg-leaf-soft px-2 py-1 text-[0.6875rem] font-bold text-leaf"><Leaf size={11} /> Organic</span>}
         </div>
+        {badge && <span className="absolute bottom-0 right-0 rounded-lg bg-ink px-2 py-1 text-[0.6875rem] font-bold text-white">{badge}</span>}
       </Link>
       <div className="mt-2 flex flex-1 flex-col">
         <Link href={`/p/${product.slug}`} className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 hover:text-tangerine">{product.name}</Link>

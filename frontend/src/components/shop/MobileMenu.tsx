@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgePercent, Menu, X } from "lucide-react";
+import { BadgePercent, Menu, User, X } from "lucide-react";
+import { firstName, useAccount } from "@/components/account/AccountProvider";
 import type { CategoryNode } from "@/lib/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
@@ -11,6 +12,7 @@ import { CategoryIcon } from "@/components/ui/CategoryIcon";
 export function MobileMenu({ categories }: { categories: CategoryNode[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { me } = useAccount();
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close after navigating.
   useEffect(() => setOpen(false), [pathname]);
   return (
@@ -22,6 +24,9 @@ export function MobileMenu({ categories }: { categories: CategoryNode[] }) {
           <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl bg-cream"><X size={18} /></button>
         </div>
         <nav className="flex-1 space-y-5 overflow-y-auto px-4 pb-6">
+          <Link href={me ? "/account" : "/login"} className="flex items-center gap-3 rounded-2xl bg-ink p-3 font-bold text-white">
+            <User size={20} className="text-sun" /> {me ? `${firstName(me.name)}'s account` : "Sign in or create an account"}
+          </Link>
           <Link href="/deals" className="flex items-center gap-3 rounded-2xl bg-sun-soft p-3 font-bold"><BadgePercent size={20} /> Today&rsquo;s deals</Link>
           {categories.map((top) => (
             <div key={top.id}>

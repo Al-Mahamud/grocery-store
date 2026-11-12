@@ -54,9 +54,12 @@ public class CartService {
         return summarise(lines(cartId.get()), code);
     }
 
-    /** Sets the quantity of a pack, creating the bag if needed. 0 removes it. Returns the bag id. */
+    /**
+     * Sets the quantity of a pack, creating the bag if needed (owned by {@code customerId} when
+     * signed in). 0 removes it. Returns the bag id.
+     */
     @Transactional
-    public UUID set(Optional<UUID> cartId, long packId, int quantity) {
+    public UUID set(Optional<UUID> cartId, Long customerId, long packId, int quantity) {
         record PackRow(int stock, int max) {
         }
         PackRow pack = jdbc.sql("""
@@ -64,7 +67,7 @@ public class CartService {
                          where k.id = :id and p.status = 'ACTIVE'""")
                 .param("id", packId).query((rs, n) -> new PackRow(rs.getInt(1), rs.getInt(2))).optional()
                 .orElseThrow(() -> ApiException.notFound("pack"));
-        UUID id = cartId.filter(this::exists).orElseGet(this::create);
+        UUID id = cartId.filter(c -> belongsTo(c, customerId)).orElseGet(() -> create(customerId));
         if (quantity <= 0) {
             jdbc.sql("delete from cart_items where cart_id = :c and pack_id = :k").param("c", id).param("k", packId).update();
         } else {
@@ -88,10 +91,61 @@ public class CartService {
 
     /** Adds to whatever is already in the bag. */
     @Transactional
-    public UUID add(Optional<UUID> cartId, long packId, int quantity) {
-        int already = cartId.map(c -> jdbc.sql("select quantity from cart_items where cart_id = :c and pack_id = :k")
+    public UUID add(Optional<UUID> cartId, Long customerId, long packId, int quantity) {
+        return set(cartId, customerId, packId, quantityOf(cartId, packId) + quantity);
+    }
+
+    int quantityOf(Optional<UUID> cartId, long packId) {
+        return cartId.map(c -> jdbc.sql("select quantity from cart_items where cart_id = :c and pack_id = :k")
                 .param("c", c).param("k", packId).query(Integer.class).optional().orElse(0)).orElse(0);
-        return set(cartId, packId, already + quantity);
+    }
+
+    /** The bag of a signed-in customer. */
+    public Optional<UUID> ofCustomer(long customerId) {
+        return jdbc.sql("select id from carts where customer_id = :c").param("c", customerId)
+                .query(UUID.class).optional();
+    }
+
+    /** True if the bag exists and belongs to this customer, or to no one when {@code customerId} is null. */
+    public boolean belongsTo(UUID cartId, Long customerId) {
+        return jdbc.sql("select count(*) from carts where id = :id and customer_id is not distinct from cast(:c as bigint)")
+                .param("id", cartId).param("c", customerId).query(Long.class).single() > 0;
+    }
+
+    /**
+     * At sign-in, the bag filled as a guest joins the customer's own bag. If both hold the same
+     * pack, the larger quantity wins (never above the per-order limit); a coupon carries over if the
+     * customer's bag has none.
+     */
+    @Transactional
+    public void claim(long customerId, Optional<UUID> guestCart) {
+        Optional<UUID> guest = guestCart.filter(c -> belongsTo(c, null));
+        if (guest.isEmpty()) {
+            return;
+        }
+        Optional<UUID> own = ofCustomer(customerId);
+        if (own.isEmpty()) {
+            jdbc.sql("update carts set customer_id = :c, updated_at = now() where id = :id")
+                    .param("c", customerId).param("id", guest.get()).update();
+            return;
+        }
+        UUID target = own.get();
+        jdbc.sql("""
+                        insert into cart_items (cart_id, pack_id, quantity, added_at)
+                        select :target, pack_id, quantity, added_at from cart_items where cart_id = :guest
+                        on conflict (cart_id, pack_id) do update
+                           set quantity = greatest(cart_items.quantity, excluded.quantity)""")
+                .param("target", target).param("guest", guest.get()).update();
+        jdbc.sql("""
+                        update cart_items ci set quantity = k.max_per_order
+                          from packs k where k.id = ci.pack_id and ci.cart_id = :target and ci.quantity > k.max_per_order""")
+                .param("target", target).update();
+        jdbc.sql("""
+                        update carts set coupon_code = coalesce(coupon_code, (select coupon_code from carts where id = :guest)),
+                                         updated_at = now()
+                         where id = :target""")
+                .param("target", target).param("guest", guest.get()).update();
+        jdbc.sql("delete from carts where id = :guest").param("guest", guest.get()).update();
     }
 
     @Transactional
@@ -160,14 +214,18 @@ public class CartService {
                 delivery.freeOver(), remainingFree, delivery.minimumOrder(), remainingMinimum, canCheckout);
     }
 
-    private boolean exists(UUID id) {
-        return jdbc.sql("select count(*) from carts where id = :id").param("id", id).query(Long.class).single() > 0;
-    }
-
-    private UUID create() {
-        UUID id = UUID.randomUUID();
-        jdbc.sql("insert into carts (id) values (:id)").param("id", id).update();
-        return id;
+    private UUID create(Long customerId) {
+        if (customerId == null) {
+            UUID id = UUID.randomUUID();
+            jdbc.sql("insert into carts (id) values (:id)").param("id", id).update();
+            return id;
+        }
+        // One bag per customer, even if two devices add their first item at the same moment.
+        return jdbc.sql("""
+                        insert into carts (id, customer_id) values (:id, :c)
+                        on conflict (customer_id) where customer_id is not null do update set updated_at = now()
+                        returning id""")
+                .param("id", UUID.randomUUID()).param("c", customerId).query(UUID.class).single();
     }
 
     static ApiException emptyCart() {

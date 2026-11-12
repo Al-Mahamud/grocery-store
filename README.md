@@ -29,6 +29,9 @@ Demo coupons: `WELCOME15` (15% off over ৳500, up to ৳150), `FRESH50` (৳50 
 `FREEDEL` (free delivery over ৳600), `OLD10` (expired, for testing). Demo brands are made up.
 Product pictures are drawn by `backend/src/test/java/.../support/DemoArt.java`.
 
+Demo account: mobile `01755555555`, password `haat-demo` (Farzana, with a saved address and three
+past orders, so "Buy again" and order history have something to show).
+
 ## Frontend
 
 Needs Node.js 20.9+. The backend must be running; Next.js forwards `/api/v1` and `/media` to it

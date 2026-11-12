@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Banknote, CreditCard, Lock, PhoneCall, Repeat, Trash2 } from "lucide-react";
+import { Banknote, Check, CreditCard, Lock, PhoneCall, Plus, Repeat, Trash2 } from "lucide-react";
 import { ApiError, request } from "@/lib/client";
 import { taka } from "@/lib/money";
-import type { Area, Day, Quote } from "@/lib/types";
+import type { Area, Day, Quote, SavedAddress } from "@/lib/types";
+import { useAccount } from "@/components/account/AccountProvider";
+import { Field } from "@/components/ui/Field";
 import { useCart } from "./CartProvider";
 
 type Substitution = "CALL" | "REPLACE" | "REMOVE";
@@ -17,7 +19,11 @@ const SAVED = "haat.checkout";
 /* eslint-disable @next/next/no-img-element */
 export function CheckoutForm() {
   const { cart, refresh } = useCart();
+  const { me } = useAccount();
   const router = useRouter();
+  const [saved, setSaved] = useState<SavedAddress[]>([]);
+  const [chosen, setChosen] = useState<number | "new">("new");
+  const [saveAddress, setSaveAddress] = useState(true);
   const [form, setForm] = useState<Form>({ name: "", phone: "", email: "", address: "", areaId: "", note: "", substitution: "REPLACE" });
   const [areas, setAreas] = useState<Area[]>([]);
   const [days, setDays] = useState<Day[]>([]);
@@ -47,6 +53,34 @@ export function CheckoutForm() {
       // Storage unavailable; start empty.
     }
   }, []);
+
+  // Signed in: start from the default saved address, or at least the customer's name and number.
+  useEffect(() => {
+    if (!me) return;
+    request<SavedAddress[]>("GET", "/account/addresses")
+      .then((list) => {
+        setSaved(list);
+        const first = list.find((a) => a.isDefault) ?? list[0];
+        if (first) {
+          setChosen(first.id);
+          setForm((f) => ({ ...f, ...fromSaved(first), email: f.email || me.email || "" }));
+        } else {
+          setForm((f) => ({ ...f, name: f.name || me.name, phone: f.phone || me.phone, email: f.email || me.email || "" }));
+        }
+      })
+      .catch(() => setSaved([]));
+  }, [me]);
+
+  const choose = (a: SavedAddress | "new") => {
+    setErrors({});
+    if (a === "new") {
+      setChosen("new");
+      setForm((f) => ({ ...f, name: me?.name ?? "", phone: me?.phone ?? "", address: "", areaId: "", note: "" }));
+    } else {
+      setChosen(a.id);
+      setForm((f) => ({ ...f, ...fromSaved(a) }));
+    }
+  };
 
   useEffect(() => {
     if (!cart || cart.items.length === 0) return;
@@ -89,6 +123,7 @@ export function CheckoutForm() {
         slotDate: slot.date,
         slotStart: slot.start,
         paymentMethod: "COD",
+        saveAddress: Boolean(me) && chosen === "new" && saveAddress,
       });
       try {
         const { name, phone, email, address, areaId, substitution } = form;
@@ -157,7 +192,27 @@ export function CheckoutForm() {
         </Section>
 
         <Section n={2} title="Address & contact">
-          <div className="grid gap-3 sm:grid-cols-2">
+          {me === null && (
+            <p className="mb-4 rounded-xl bg-cream px-4 py-3 text-sm">
+              Have an account? <Link href="/login?next=/checkout" className="font-bold text-tangerine hover:text-tangerine-dark">Sign in</Link> to use your saved addresses.
+            </p>
+          )}
+          {saved.length > 0 && (
+            <div className="mb-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Saved addresses">
+              {saved.map((a) => (
+                <button key={a.id} type="button" role="radio" aria-checked={chosen === a.id} onClick={() => choose(a)} className={`relative rounded-xl border-2 p-3 text-left transition ${chosen === a.id ? "border-leaf bg-leaf-soft" : "border-line hover:border-ink/40"}`}>
+                  <span className="block text-sm font-bold">{a.label}{a.isDefault && <span className="ml-1.5 text-xs font-semibold text-muted">· default</span>}</span>
+                  <span className="block truncate text-xs text-ink-soft">{a.address}, {a.area}</span>
+                  <span className="block text-xs text-muted">{a.name} · {a.phone}</span>
+                  {chosen === a.id && <Check size={16} strokeWidth={3} className="absolute right-3 top-3 text-leaf" />}
+                </button>
+              ))}
+              <button type="button" role="radio" aria-checked={chosen === "new"} onClick={() => choose("new")} className={`flex items-center gap-2 rounded-xl border-2 border-dashed p-3 text-sm font-bold transition ${chosen === "new" ? "border-tangerine bg-tangerine-soft" : "border-line hover:border-ink/40"}`}>
+                <Plus size={16} /> Deliver somewhere else
+              </button>
+            </div>
+          )}
+          <div className={`grid gap-3 sm:grid-cols-2 ${chosen !== "new" ? "hidden" : ""}`}>
             <Field label="Full name" error={errors.name}><input autoComplete="name" value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
             <Field label="Mobile number" error={errors.phone} hint="The rider calls this number."><input type="tel" inputMode="tel" autoComplete="tel" placeholder="01XXXXXXXXX" value={form.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
             <Field label="Area" error={errors.areaId}>
@@ -169,7 +224,15 @@ export function CheckoutForm() {
             <Field label="Email (optional)" error={errors.email}><input type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></Field>
             <Field label="Address" error={errors.address} hint="House, road, flat and any landmark" className="sm:col-span-2"><input autoComplete="street-address" value={form.address} onChange={(e) => set("address", e.target.value)} /></Field>
             <Field label="Note for the rider (optional)" error={errors.note} className="sm:col-span-2"><input value={form.note} onChange={(e) => set("note", e.target.value)} placeholder="e.g. Leave with the guard" /></Field>
+            {me && (
+              <label className="flex items-center gap-2.5 text-sm font-semibold sm:col-span-2">
+                <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} className="h-4 w-4 accent-tangerine" /> Save this address to my account
+              </label>
+            )}
           </div>
+          {chosen !== "new" && Object.values(errors).some(Boolean) && (
+            <p className="mt-2 text-xs font-semibold text-berry">{Object.values(errors).find(Boolean)} <button type="button" className="underline" onClick={() => setChosen("new")}>Edit the details</button></p>
+          )}
         </Section>
 
         <Section n={3} title="If something is out of stock">
@@ -246,12 +309,6 @@ function Section({ n, title, children }: { n: number; title: string; children: R
   );
 }
 
-function Field({ label, hint, error, className = "", children }: { label: string; hint?: string; error?: string; className?: string; children: React.ReactNode }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-bold text-ink-soft">{label}</span>
-      <span className={`block rounded-xl border-2 bg-white transition focus-within:border-tangerine [&>*]:w-full [&>*]:rounded-xl [&>*]:bg-transparent [&>*]:px-3.5 [&>*]:py-2.5 [&>*]:text-sm [&>*]:outline-none ${error ? "border-berry" : "border-line"}`}>{children}</span>
-      {error ? <span className="mt-1 block text-xs font-semibold text-berry">{error}</span> : hint ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}
-    </label>
-  );
+function fromSaved(a: SavedAddress) {
+  return { name: a.name, phone: a.phone, address: a.address, areaId: String(a.areaId), note: a.note ?? "" };
 }

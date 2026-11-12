@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgePercent, User } from "lucide-react";
+import { BadgePercent } from "lucide-react";
 import { api } from "@/lib/api";
 import { site } from "@/config/site";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
@@ -8,6 +8,7 @@ import { SearchBox } from "./SearchBox";
 import { BagButton } from "./BagButton";
 import { DeliveryChip } from "./DeliveryChip";
 import { MobileMenu } from "./MobileMenu";
+import { AccountButton } from "@/components/account/AccountButton";
 
 export async function Header() {
   const [categories, days] = await Promise.all([api.categories(), api.slots()]);
@@ -24,7 +25,7 @@ export async function Header() {
         <DeliveryChip days={days} />
         <SearchBox className="hidden flex-1 md:block" />
         <div className="ml-auto flex items-center gap-1.5 md:ml-0">
-          <Link href="/account" aria-label="Account" className="hidden h-12 w-12 place-items-center rounded-2xl hover:bg-cream sm:grid"><User size={21} /></Link>
+          <AccountButton />
           <BagButton />
         </div>
       </div>

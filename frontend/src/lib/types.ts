@@ -128,3 +128,34 @@ export type OrderView = {
   couponCode: string | null;
   events: { status: string; note: string | null; at: string }[];
 };
+
+export type Profile = { id: number; name: string; phone: string; email: string | null };
+
+export type SavedAddress = {
+  id: number;
+  label: string;
+  name: string;
+  phone: string;
+  address: string;
+  areaId: number;
+  area: string;
+  note: string | null;
+  isDefault: boolean;
+};
+
+export type OrderSummary = {
+  number: string;
+  status: OrderView["status"];
+  placedAt: string;
+  slot: { date: string; start: string; end: string };
+  itemCount: number;
+  lineCount: number;
+  total: number;
+  images: string[];
+};
+
+export type OrderHistory = { items: OrderSummary[]; page: number; pageSize: number; total: number };
+
+export type BuyAgainItem = { product: ProductCard; packId: number; timesBought: number };
+
+export type Reordered = { added: number; unavailable: string[]; cart: Cart };

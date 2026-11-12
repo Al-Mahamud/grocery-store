@@ -123,12 +123,27 @@ Cash-on-delivery orders start at PLACED.
 
 | # | Phase | Contents | Status |
 |---|---|---|---|
-| 0 | Plan and skeleton | this plan, both projects, README | |
-| 1 | Catalog backend | schema, packs with unit prices, filters, suggestions, home, demo groceries, tests | |
-| 2 | Storefront | design system, header with live search, home, category pages, product page | |
-| 3 | Bag and checkout | quick add, bag, coupons, minimum order, areas, slots, substitutions, COD orders, tracking | |
+| 0 | Plan and skeleton | this plan, both projects, README | done |
+| 1 | Catalog backend | schema, packs with unit prices, filters, suggestions, home, demo groceries, tests | done |
+| 2 | Storefront | design system, header with live search, home, category pages, product page | done |
+| 3 | Bag and checkout | quick add, bag, coupons, minimum order, areas, slots, substitutions, COD orders, tracking | done |
 | 4 | Accounts | register/sign in, bag merge, saved addresses, order history, buy again | |
 | 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | |
 | 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | |
 | 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | |
 | 8 | Launch readiness | Docker, Caddy, backups, CI, real payment credentials | |
+
+### Notes from building
+
+- Order numbers look like `HT10001`. Guests open their thank-you page with a random token in the
+  link; tracking needs the order number plus the phone number used.
+- Booking a slot takes a database advisory lock per slot, so two shoppers can't both take the last
+  place. A slot closes 2 hours before it starts (`store.slots.cutoff`).
+- The − / + buttons change the number on screen at once and send the exact quantity to the server
+  (`PUT /cart/items/{packId}`); if the server refuses (stock, per-order limit), the bag snaps back
+  and a short message explains why.
+- Search ranks name matches above products that only mention the word in their description;
+  Bangla names are matched with a plain "contains" search.
+- The home page is built at `next build` time and refreshed every 30 s, so the backend must be
+  reachable during a production build (phase 8).
+- The account icon and footer `/pages/*` links lead nowhere until phases 4 and 7.

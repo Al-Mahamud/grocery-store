@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/* Design tokens: cream page, white cards, indigo ink, tangerine actions, leaf green, sunny deals. */
+@theme {
+  --color-cream: #f7f4ee;
+  --color-cream-deep: #efe9df;
+  --color-ink: #1a1a2e;
+  --color-ink-soft: #3d3d55;
+  --color-muted: #6b6b80;
+  --color-line: #e8e3da;
+  --color-tangerine: #ff6b35;
+  --color-tangerine-dark: #e5551f;
+  --color-tangerine-soft: #ffe8dd;
+  --color-leaf: #17a05d;
+  --color-leaf-soft: #e1f5ea;
+  --color-sun: #ffd23f;
+  --color-sun-soft: #fff6d1;
+  --color-berry: #e2364a;
+
+  --font-sans: var(--font-dm), var(--font-bengali), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-bengali), ui-sans-serif, sans-serif;
+  --font-bangla: var(--font-bengali), var(--font-dm), sans-serif;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-pop: pop 0.35s var(--ease-out-soft) both;
+  --animate-rise: rise 0.5s var(--ease-out-soft) both;
+
+  @keyframes pop {
+    0% { transform: scale(0.85); }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+  }
+  ::selection {
+    background: var(--color-sun);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-tangerine);
+    outline-offset: 2px;
+  }
+}
+
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1480px;
+  padding-inline: 1rem;
+  @media (width >= 48rem) {
+    padding-inline: 1.5rem;
+  }
+  @media (width >= 80rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

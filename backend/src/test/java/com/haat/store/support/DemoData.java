@@ -422,8 +422,8 @@ public class DemoData {
 
         private void demoCustomer(Instant now) {
             long customer = jdbc.sql("""
-                            insert into customers (name, phone, email, password_hash)
-                            values ('Farzana Rahman', :phone, null, :hash) returning id""")
+                            insert into customers (name, phone, email, password_hash, phone_verified_at)
+                            values ('Farzana Rahman', :phone, null, :hash, now()) returning id""")
                     .param("phone", DEMO_PHONE).param("hash", passwords.encode(DEMO_PASSWORD)).query(Long.class).single();
             long area = jdbc.sql("select id from delivery_areas where name = 'Dhanmondi'").query(Long.class).single();
             jdbc.sql("""

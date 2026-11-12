@@ -53,7 +53,7 @@ function Products() {
       </PageHeader>
       <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); go({ q: search.trim() }); }}>
         <label className="relative min-w-60 flex-1"><span className="sr-only">Search products</span><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, Bangla name, brand or SKU" className={`${input} pl-9`} /></label>
-        <select aria-label="Category" value={category} onChange={(e) => go({ category: e.target.value })} className={`${input} w-auto`}>
+        <select aria-label="Category" value={category} onChange={(e) => go({ category: e.target.value })} className={`${input} w-auto!`}>
           <option value="">All categories</option>
           {categories.map((top) => (
             <optgroup key={top.id} label={top.name}>
@@ -62,7 +62,7 @@ function Products() {
             </optgroup>
           ))}
         </select>
-        <select aria-label="Status" value={status} onChange={(e) => go({ status: e.target.value })} className={`${input} w-auto`}>
+        <select aria-label="Status" value={status} onChange={(e) => go({ status: e.target.value })} className={`${input} w-auto!`}>
           <option value="">Any status</option><option value="ACTIVE">On sale</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option>
         </select>
         <label className="flex items-center gap-2 rounded-xl bg-white px-3 text-sm font-semibold"><input type="checkbox" checked={low} onChange={(e) => go({ low: e.target.checked ? "1" : "" })} className="h-4 w-4 accent-tangerine" /> Running low</label>

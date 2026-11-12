@@ -50,3 +50,8 @@ npm run dev       # http://localhost:3000
 Online payment in local runs goes to a fake SSLCommerz page (test sources only, no real money). For
 the real sandbox, set `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD` and a public `WEB_URL` the
 gateway can reach.
+
+Texts (SMS) in local runs are only logged; read them, including sign-up codes, at
+http://localhost:8080/api/v1/test-texts. For real texts set `SMS_DRIVER=sslwireless`,
+`SSLWIRELESS_API_TOKEN` and `SSLWIRELESS_SID`. Set `NEXT_PUBLIC_SITE_URL` to the public address
+before building the website for production.

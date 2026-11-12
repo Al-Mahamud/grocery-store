@@ -48,7 +48,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <p className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 font-bold text-leaf"><CalendarClock size={20} /> {slotText(order.slot)}</p>
             {paid && <p className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 font-bold"><CircleCheck size={20} /> Paid {taka(order.total)}</p>}
           </div>
-          <p className="mt-4 max-w-lg text-sm text-white/85">We&rsquo;ll text {order.phone} when your order is packed and again when the rider is on the way.</p>
+          <p className="mt-4 max-w-lg text-sm text-white/85">We&rsquo;ve texted {order.phone} a confirmation, and we&rsquo;ll text again when the rider is on the way.</p>
         </div>
       )}
       {order.status !== "PENDING_PAYMENT" && order.status !== "CANCELLED" && (

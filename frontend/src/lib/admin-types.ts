@@ -105,3 +105,6 @@ export type StockRow = { packId: number; productId: number; product: string; ima
 export type Coupon = { id: number; code: string; description: string; kind: "PERCENT" | "FIXED" | "FREE_SHIPPING"; value: number; maxDiscount: number | null; minSubtotal: number; startsAt: string | null; endsAt: string | null; usageLimit: number | null; usedCount: number; active: boolean };
 
 export type AdminArea = { id: number; name: string; slug: string; active: boolean; orders: number };
+
+export type Text = { id: number; phone: string; kind: "CODE" | "ORDER_PLACED" | "ORDER_ON_THE_WAY" | "ORDER_CANCELLED"; body: string; status: "QUEUED" | "SENDING" | "SENT" | "FAILED"; attempts: number; provider: string | null; error: string | null; orderNumber: string | null; createdAt: string; sentAt: string | null };
+export type TextPage = { items: Text[]; page: number; pageSize: number; total: number; counts: Record<string, number> };

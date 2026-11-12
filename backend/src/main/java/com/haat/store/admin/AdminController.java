@@ -200,6 +200,18 @@ class AdminController {
         return settings.saveArea(id, body.name(), body.active() == null || body.active());
     }
 
+    @GetMapping("/texts")
+    AdminSettings.TextPage texts(@RequestParam(required = false) String status, @RequestParam(required = false) String phone,
+                                 @RequestParam(defaultValue = "0") int page) {
+        return settings.texts(status, phone, Math.max(0, page));
+    }
+
+    @PostMapping("/texts/{id}/retry")
+    AdminSettings.TextPage retryText(@PathVariable long id) {
+        settings.retryText(id);
+        return settings.texts(null, null, 0);
+    }
+
     @GetMapping("/slots")
     Map<String, Object> slots(@RequestParam(defaultValue = "7") int days) {
         return Map.of("usualCapacity", delivery.usualCapacity(), "days", delivery.board(Math.min(Math.max(days, 1), 14)));

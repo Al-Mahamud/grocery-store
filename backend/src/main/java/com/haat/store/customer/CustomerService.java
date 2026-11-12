@@ -31,12 +31,17 @@ public class CustomerService {
         this.dummyHash = passwords.encode("not-a-real-password");
     }
 
+    public boolean exists(String phone) {
+        return jdbc.sql("select count(*) from customers where phone = :p").param("p", phone).query(Integer.class).single() > 0;
+    }
+
+    /** A new account whose number was just proven with a code. */
     @Transactional
     public Profile register(String name, String phone, String email, String password) {
         try {
             long id = jdbc.sql("""
-                            insert into customers (name, phone, email, password_hash)
-                            values (:name, :phone, :email, :hash) returning id""")
+                            insert into customers (name, phone, email, password_hash, phone_verified_at)
+                            values (:name, :phone, :email, :hash, now()) returning id""")
                     .param("name", name).param("phone", phone).param("email", email)
                     .param("hash", passwords.encode(password))
                     .query(Long.class).single();
@@ -75,6 +80,28 @@ public class CustomerService {
         jdbc.sql("update customers set name = :name, email = :email, updated_at = now() where id = :id")
                 .param("name", name).param("email", email).param("id", id).update();
         return profile(id);
+    }
+
+    /**
+     * Orders placed as a guest with this (now proven) number join the account, so they show in its
+     * history and "buy again". Returns how many.
+     */
+    @Transactional
+    public int linkGuestOrders(long id, String phone) {
+        return jdbc.sql("update orders set customer_id = :id where phone = :p and customer_id is null")
+                .param("id", id).param("p", phone).update();
+    }
+
+    /** After a code proved the number: a new password. Returns the account id, if there is one. */
+    @Transactional
+    public Optional<Long> resetPassword(String phone, String password) {
+        Optional<Long> id = jdbc.sql("select id from customers where phone = :p").param("p", phone).query(Long.class).optional();
+        id.ifPresent(c -> jdbc.sql("""
+                        update customers set password_hash = :h, phone_verified_at = coalesce(phone_verified_at, now()),
+                                             updated_at = now()
+                         where id = :id""")
+                .param("h", passwords.encode(password)).param("id", c).update());
+        return id;
     }
 
     @Transactional

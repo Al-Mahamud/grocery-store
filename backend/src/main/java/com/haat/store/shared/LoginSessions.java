@@ -62,6 +62,11 @@ public class LoginSessions {
         endOthers(CurrentCustomer.PREFIX + customerId, request);
     }
 
+    /** Signs a customer out everywhere (after a password reset). */
+    public void endAllCustomerSessions(long customerId) {
+        sessions.findByPrincipalName(CurrentCustomer.PREFIX + customerId).keySet().forEach(sessions::deleteById);
+    }
+
     /** Signs a member of staff out everywhere except this browser. */
     public void endOtherStaffSessions(long staffId, HttpServletRequest request) {
         endOthers(CurrentStaff.PREFIX + staffId, request);

@@ -10,6 +10,34 @@ import { ProductRail } from "@/components/shop/ProductRail";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { SectionHeading } from "@/components/shop/SectionHeading";
 import { BuyAgainRail } from "@/components/account/BuyAgainRail";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
+
+/** Who we are, for search engines: a grocery shop with its own search box. */
+const storeJsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "GroceryStore",
+    name: site.name,
+    url: site.url,
+    telephone: site.phone,
+    email: site.email,
+    description: site.description,
+    address: { "@type": "PostalAddress", streetAddress: site.address, addressLocality: "Dhaka", addressCountry: "BD" },
+    areaServed: { "@type": "City", name: "Dhaka" },
+    openingHours: "Mo-Su 08:00-22:00",
+    currenciesAccepted: "BDT",
+    paymentAccepted: "Cash, bKash, Nagad, Credit Card",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: site.name,
+    url: site.url,
+    potentialAction: { "@type": "SearchAction", target: `${site.url}/search?q={search_term_string}`, "query-input": "required name=search_term_string" },
+  },
+];
 
 /* eslint-disable @next/next/no-img-element */
 export default async function HomePage() {
@@ -70,6 +98,7 @@ export default async function HomePage() {
         </ul>
       </section>
 
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(storeJsonLd).replace(/</g, "\\u003c") }} />
       <BuyAgainRail />
       <Rail title="Today's deals" note="Prices drop while stocks last" href="/deals" products={home.deals} />
       <Rail title={<>Fresh today <Leaf className="inline text-leaf" size={22} /></>} note="Arrives at our hub every morning" href="/c/fresh" products={home.fresh} />

@@ -130,7 +130,7 @@ Cash-on-delivery orders start at PLACED.
 | 4 | Accounts | register/sign in, bag merge, saved addresses, order history, buy again | done |
 | 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | done |
 | 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | done |
-| 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | |
+| 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | done |
 | 8 | Launch readiness | Docker, Caddy, backups, CI, real payment credentials | |
 
 ### Notes from building
@@ -146,7 +146,6 @@ Cash-on-delivery orders start at PLACED.
   Bangla names are matched with a plain "contains" search.
 - The home page is built at `next build` time and refreshed every 30 s, so the backend must be
   reachable during a production build (phase 8).
-- The footer `/pages/*` links lead nowhere until phase 7.
 
 ### Notes from phase 4 (accounts)
 
@@ -211,3 +210,30 @@ Cash-on-delivery orders start at PLACED.
 - Slot capacity can be changed or closed for a single day (`slot_capacity`); the usual capacity
   stays in `store.slots.capacity`. Areas are switched off rather than deleted, as old orders use them.
 - "Running low" means stock at or below `store.admin.low-stock` (10).
+
+### Notes from phase 7 (texts and search engines)
+
+- Texts go through an outbox (`sms_messages`): each is saved in the same transaction as the change
+  it describes and sent by a job every 5 seconds, retried up to 3 times; failures show in the admin
+  (Text messages) with a Retry button. Sent codes are masked in the stored text.
+- Customers get a text when an order is confirmed (cash, paid, or switched to cash), when it is on
+  its way (with the cash to keep ready), and when it is cancelled (with refund or "not charged"
+  wording). Packing and delivered aren't texted. Texts use "Tk" so each fits one 160-character SMS.
+- `SMS_DRIVER=log` (default) only logs texts; local runs show them at
+  http://localhost:8080/api/v1/test-texts (test sources only). `SMS_DRIVER=sslwireless` sends
+  through SSL Wireless with `SSLWIRELESS_API_TOKEN` and `SSLWIRELESS_SID`; that sender follows
+  their published v3 API and must be checked with a real account before launch.
+- Sign-up now needs a 6-digit code texted to the number (10 minutes, 5 tries, one per minute, 5 per
+  hour per number, 20 per hour per address). Because the number is proven, earlier guest orders with
+  it join the new account. "Forgot password" uses the same codes and signs out other devices; it
+  answers the same whether or not the number has an account. Accounts made before codes have
+  `phone_verified_at` empty.
+- Search engines: `NEXT_PUBLIC_SITE_URL` is the public address used in canonical links, the sitemap
+  (home, deals, categories, products, information pages; refreshed hourly), robots rules (private
+  and per-person pages are excluded), a default sharing image, and structured data (GroceryStore,
+  WebSite search, Product, BreadcrumbList).
+- Information pages at `/pages/*` (about, delivery, returns, contact, privacy, terms, careers) are in
+  `frontend/src/config/pages.ts`. They are drafts: the owner must check every promise, and Terms and
+  Privacy should be read by a lawyer, before launch.
+- Demo product pictures are SVG, which social networks don't show in link previews; uploaded JPEG or
+  PNG pictures are fine.

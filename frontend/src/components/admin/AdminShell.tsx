@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BadgePercent, ClipboardList, ExternalLink, LayoutDashboard, LogOut, Menu, Package, Boxes, ShoppingBag, Truck, X } from "lucide-react";
+import { BadgePercent, ClipboardList, ExternalLink, LayoutDashboard, LogOut, Menu, MessageSquareText, Package, Boxes, ShoppingBag, Truck, X } from "lucide-react";
 import { request } from "@/lib/client";
 import type { Staff } from "@/lib/admin-types";
 
@@ -24,6 +24,7 @@ const nav = [
   { href: "/admin/stock", label: "Stock", icon: Boxes },
   { href: "/admin/coupons", label: "Coupons", icon: BadgePercent },
   { href: "/admin/delivery", label: "Delivery", icon: Truck },
+  { href: "/admin/texts", label: "Text messages", icon: MessageSquareText },
 ];
 
 /** The admin frame: sidebar, staff name, sign-out, and a redirect to sign-in for everyone else. */

@@ -8,8 +8,12 @@ const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-br
 const bengali = Noto_Sans_Bengali({ subsets: ["bengali"], variable: "--font-bengali", display: "swap", weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(site.url),
   title: { default: `${site.name} — ${site.tagline}`, template: `%s · ${site.name}` },
   description: site.description,
+  applicationName: site.name,
+  openGraph: { siteName: site.name, locale: "en_BD", type: "website" },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = { themeColor: "#f7f4ee" };

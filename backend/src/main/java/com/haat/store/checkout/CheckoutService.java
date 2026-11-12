@@ -2,6 +2,7 @@ package com.haat.store.checkout;
 
 import com.haat.store.checkout.CartService.Line;
 import com.haat.store.delivery.DeliveryService;
+import com.haat.store.notify.OrderTexts;
 import com.haat.store.payment.PaymentService;
 import com.haat.store.shared.ApiException;
 import com.haat.store.shared.StoreProperties;
@@ -52,10 +53,12 @@ public class CheckoutService {
     private final DeliveryService delivery;
     private final StoreProperties.Delivery fees;
     private final PaymentService payments;
+    private final OrderTexts texts;
     private final Clock clock;
 
     CheckoutService(JdbcClient jdbc, CartService carts, Coupons coupons, DeliveryService delivery,
-                    StoreProperties properties, PaymentService payments, Clock clock) {
+                    StoreProperties properties, PaymentService payments, OrderTexts texts, Clock clock) {
+        this.texts = texts;
         this.jdbc = jdbc;
         this.carts = carts;
         this.coupons = coupons;
@@ -170,6 +173,9 @@ public class CheckoutService {
                 .param("n", "Delivery " + slot.label() + ", " + slotDate)
                 .update();
         jdbc.sql("delete from carts where id = :id").param("id", cartId).update();
+        if (status.equals("PLACED")) {
+            texts.placed(orderId);
+        }
         return new Placed(orderId, number, token, quote.total());
     }
 

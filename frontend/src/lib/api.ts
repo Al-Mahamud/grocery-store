@@ -1,6 +1,6 @@
 import "server-only";
 import { notFound } from "next/navigation";
-import type { CategoryNode, Day, Home, OrderView, ProductCard, ProductDetail, ProductPage } from "./types";
+import type { Area, CategoryNode, Day, Home, OrderView, ProductCard, ProductDetail, ProductPage } from "./types";
 
 const backend = process.env.BACKEND_URL ?? "http://localhost:8080";
 
@@ -17,6 +17,8 @@ export const api = {
   category: (slug: string) => get<CategoryNode>(`/categories/${encodeURIComponent(slug)}`),
   products: (query: URLSearchParams) => get<ProductPage>(`/products?${query}`),
   product: (slug: string) => get<ProductDetail>(`/products/${encodeURIComponent(slug)}`),
+  areas: () => get<Area[]>("/delivery/areas", 300),
+  sitemap: () => get<{ categories: string[]; products: { slug: string; updatedAt: string }[] }>("/sitemap", 3600),
   related: (slug: string) => get<ProductCard[]>(`/products/${encodeURIComponent(slug)}/related`),
   /** Slots fill up, so they are read fresh. */
   slots: async (): Promise<Day[]> => {

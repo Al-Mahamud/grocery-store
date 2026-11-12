@@ -7,7 +7,12 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchPa
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = await api.category((await params).slug);
-  return { title: category.name };
+  const names = category.children.slice(0, 4).map((c) => c.name.toLowerCase()).join(", ");
+  return {
+    title: category.name,
+    description: `Buy ${category.name.toLowerCase()}${names ? ` — ${names} and more` : ""} online in Dhaka. ${category.productCount} products, delivered in a two-hour slot you choose.`,
+    alternates: { canonical: `/c/${category.slug}` },
+  };
 }
 
 export default async function CategoryPage({ params, searchParams }: Props) {

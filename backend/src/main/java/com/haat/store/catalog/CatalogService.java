@@ -120,6 +120,24 @@ public class CatalogService {
                 limit);
     }
 
+    public record SitemapEntry(String slug, java.time.Instant updatedAt) {
+    }
+
+    public record Sitemap(List<String> categories, List<SitemapEntry> products) {
+    }
+
+    public Sitemap sitemap() {
+        List<String> categories = jdbc.sql("""
+                        select slug from categories c
+                         where exists (select 1 from products p where p.status = 'ACTIVE'
+                                        and (p.category_id = c.id or p.category_id in (select id from categories where parent_id = c.id)))
+                         order by position""")
+                .query(String.class).list();
+        List<SitemapEntry> products = jdbc.sql("select slug, updated_at from products where status = 'ACTIVE' order by id")
+                .query((rs, n) -> new SitemapEntry(rs.getString(1), rs.getTimestamp(2).toInstant())).list();
+        return new Sitemap(categories, products);
+    }
+
     public Home home() {
         return new Home(
                 categoryTree(),

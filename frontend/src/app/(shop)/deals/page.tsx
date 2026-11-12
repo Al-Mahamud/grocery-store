@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { Listing } from "@/components/shop/Listing";
 import type { SearchParams } from "@/lib/listing";
 
-export const metadata: Metadata = { title: "Deals" };
+export const metadata: Metadata = {
+  title: "Deals",
+  description: "Grocery deals in Dhaka this week: staples, dairy, snacks and fresh food at lower prices while stocks last.",
+  alternates: { canonical: "/deals" },
+};
 
 export default async function DealsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;

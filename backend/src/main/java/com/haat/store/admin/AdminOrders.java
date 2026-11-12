@@ -1,6 +1,7 @@
 package com.haat.store.admin;
 
 import com.haat.store.delivery.DeliveryService;
+import com.haat.store.notify.OrderTexts;
 import com.haat.store.order.OrderService;
 import com.haat.store.order.OrderService.OrderView;
 import com.haat.store.order.OrderStock;
@@ -87,11 +88,13 @@ public class AdminOrders {
     private final OrderService orders;
     private final OrderStock stock;
     private final DeliveryService delivery;
+    private final OrderTexts texts;
     private final StoreProperties properties;
     private final Clock clock;
 
-    AdminOrders(JdbcClient jdbc, OrderService orders, OrderStock stock, DeliveryService delivery,
+    AdminOrders(JdbcClient jdbc, OrderService orders, OrderStock stock, DeliveryService delivery, OrderTexts texts,
                 StoreProperties properties, Clock clock) {
+        this.texts = texts;
         this.jdbc = jdbc;
         this.orders = orders;
         this.stock = stock;
@@ -217,6 +220,13 @@ public class AdminOrders {
             }
         }
         event(id, target, notes.isEmpty() ? null : String.join(". ", notes), actor);
+        switch (target) {
+            case "OUT_FOR_DELIVERY" -> texts.onTheWay(id);
+            case "CANCELLED" -> texts.cancelled(id, "STAFF");
+            default -> {
+                // Packing and delivered aren't texted: the customer knows the slot and sees the rider.
+            }
+        }
     }
 
     /** Records that a payment was refunded (in the SSLCommerz merchant panel), with its reference. */

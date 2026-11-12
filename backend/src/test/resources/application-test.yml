@@ -15,3 +15,6 @@ store:
       store-password: test-password
       base-url: http://localhost:${local.server.port}/api/v1/test-gateway
       callback-url: http://localhost:${local.server.port}
+  sms:
+    jobs:
+      enabled: false

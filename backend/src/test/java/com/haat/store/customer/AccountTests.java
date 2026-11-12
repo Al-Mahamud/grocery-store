@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.haat.store.support.ApiClient;
 import com.haat.store.support.ApiClient.Response;
+import com.haat.store.shared.BangladeshPhone;
 import com.haat.store.support.DemoData;
+import com.haat.store.support.TextsSent;
 import com.haat.store.shared.SignInLimiter;
 import com.haat.store.support.IntegrationTest;
 import java.util.HashMap;
@@ -46,8 +48,10 @@ class AccountTests {
 
     ApiClient register(String phone) {
         ApiClient client = new ApiClient(port);
+        assertThat(client.post("/api/v1/auth/codes", Map.of("phone", phone, "purpose", "REGISTER")).status()).isEqualTo(200);
+        String code = TextsSent.lastCode(jdbc, BangladeshPhone.normalise(phone).orElseThrow());
         Response r = client.post("/api/v1/auth/register",
-                Map.of("name", "Nusrat Jahan", "phone", phone, "password", "shobji-123"));
+                Map.of("name", "Nusrat Jahan", "phone", phone, "password", "shobji-123", "code", code));
         assertThat(r.status()).isEqualTo(201);
         return client;
     }
@@ -87,12 +91,12 @@ class AccountTests {
         assertThat(me.get("name").asString()).isEqualTo("Nusrat Jahan");
 
         Response again = new ApiClient(port).post("/api/v1/auth/register",
-                Map.of("name", "Someone", "phone", phone, "password", "another-pass"));
+                Map.of("name", "Someone", "phone", phone, "password", "another-pass", "code", "000000"));
         assertThat(again.status()).isEqualTo(409);
         assertThat(again.body().get("code").asString()).isEqualTo("auth.phone_taken");
 
         Response weak = new ApiClient(port).post("/api/v1/auth/register",
-                Map.of("name", "Someone", "phone", newPhone(), "password", "short"));
+                Map.of("name", "Someone", "phone", newPhone(), "password", "short", "code", "000000"));
         assertThat(weak.status()).isEqualTo(400);
         assertThat(weak.body().get("fields").has("password")).isTrue();
 

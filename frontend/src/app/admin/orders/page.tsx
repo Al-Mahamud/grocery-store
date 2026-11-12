@@ -61,7 +61,7 @@ function Orders() {
       </div>
       <form className="mb-4 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); go({ q: search.trim() }); }}>
         <label className="relative min-w-60 flex-1"><span className="sr-only">Search orders</span><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Order number, phone or name" className={`${input} pl-9`} /></label>
-        <label className="flex items-center gap-2 text-sm font-semibold"><span className="text-muted">Slot day</span><input type="date" value={date} onChange={(e) => go({ date: e.target.value })} className={`${input} w-auto`} /></label>
+        <label className="flex items-center gap-2 text-sm font-semibold"><span className="text-muted">Slot day</span><input type="date" value={date} onChange={(e) => go({ date: e.target.value })} className={`${input} w-auto!`} /></label>
         <button type="submit" className={btn.dark}>Search</button>
         {(q || date) && <button type="button" onClick={() => { setSearch(""); go({ q: "", date: "" }); }} className={btn.ghost}>Clear</button>}
       </form>

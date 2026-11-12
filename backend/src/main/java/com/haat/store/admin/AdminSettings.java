@@ -29,6 +29,13 @@ public class AdminSettings {
     public record AreaView(long id, String name, String slug, boolean active, int orders) {
     }
 
+    public record Text(long id, String phone, String kind, String body, String status, int attempts, String provider,
+                       String error, String orderNumber, Instant createdAt, Instant sentAt) {
+    }
+
+    public record TextPage(List<Text> items, int page, int pageSize, long total, Map<String, Integer> counts) {
+    }
+
     private final JdbcClient jdbc;
 
     AdminSettings(JdbcClient jdbc) {
@@ -154,6 +161,54 @@ public class AdminSettings {
         }
         long found = id;
         return areas().stream().filter(a -> a.id() == found).findFirst().orElseThrow();
+    }
+
+    /** Texts sent or waiting, newest first. Codes show masked once sent. */
+    public TextPage texts(String status, String phone, int page) {
+        String where = "true";
+        Map<String, Object> params = new LinkedHashMap<>();
+        if (status != null && List.of("QUEUED", "SENDING", "SENT", "FAILED").contains(status)) {
+            where += " and m.status = :status";
+            params.put("status", status);
+        }
+        if (phone != null && !phone.isBlank()) {
+            where += " and m.phone like :phone";
+            params.put("phone", "%" + phone.trim() + "%");
+        }
+        int size = 50;
+        long total = jdbc.sql("select count(*) from sms_messages m where " + where).params(params).query(Long.class).single();
+        Map<String, Object> paged = new LinkedHashMap<>(params);
+        paged.put("limit", size);
+        paged.put("offset", (long) page * size);
+        List<Text> items = jdbc.sql("""
+                        select m.id, m.phone, m.kind,
+                               case when m.sensitive and m.status <> 'SENT' then regexp_replace(m.body, '[0-9]{6}', '••••••', 'g')
+                                    else m.body end,
+                               m.status, m.attempts, m.provider, m.error, o.number, m.created_at, m.sent_at
+                          from sms_messages m left join orders o on o.id = m.order_id
+                         where %s order by m.created_at desc, m.id desc limit :limit offset :offset""".formatted(where))
+                .params(paged)
+                .query((rs, n) -> new Text(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5),
+                        rs.getInt(6), rs.getString(7), rs.getString(8), rs.getString(9), rs.getTimestamp(10).toInstant(),
+                        instant(rs.getTimestamp(11))))
+                .list();
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        jdbc.sql("""
+                        select status, count(*) from sms_messages where created_at > now() - interval '24 hours'
+                         group by status""")
+                .query(rs -> {
+                    counts.put(rs.getString(1), rs.getInt(2));
+                });
+        return new TextPage(items, page, size, total, counts);
+    }
+
+    /** Sends a failed text again. */
+    @Transactional
+    public void retryText(long id) {
+        if (jdbc.sql("update sms_messages set status = 'QUEUED', attempts = 0, error = null where id = :id and status = 'FAILED'")
+                .param("id", id).update() == 0) {
+            throw ApiException.conflict("text.not_failed", "Only failed texts can be sent again.");
+        }
     }
 
     private static Instant instant(Timestamp ts) {

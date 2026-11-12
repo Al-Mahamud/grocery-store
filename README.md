@@ -29,6 +29,10 @@ Demo coupons: `WELCOME15` (15% off over ৳500, up to ৳150), `FRESH50` (৳50 
 `FREEDEL` (free delivery over ৳600), `OLD10` (expired, for testing). Demo brands are made up.
 Product pictures are drawn by `backend/src/test/java/.../support/DemoArt.java`.
 
+Admin area: http://localhost:3000/admin, demo staff `01999999999`, password `haat-admin-1`
+(tomorrow's 10 am–12 pm slot has four orders to pack). On a real server, set `ADMIN_PHONE` and
+`ADMIN_PASSWORD` once to create the first staff account.
+
 Demo account: mobile `01755555555`, password `haat-demo` (Farzana, with a saved address and three
 past orders, so "Buy again" and order history have something to show).
 

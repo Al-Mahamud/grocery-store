@@ -1,6 +1,5 @@
-package com.haat.store.customer;
+package com.haat.store.shared;
 
-import com.haat.store.shared.ApiException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -16,11 +15,11 @@ import org.springframework.stereotype.Component;
  * address, sign-in pauses for a while. Kept in memory; one server is enough for v1.
  */
 @Component
-class SignInLimiter {
+public class SignInLimiter {
 
-    static final Duration WINDOW = Duration.ofMinutes(15);
-    static final int PER_PHONE = 6;
-    static final int PER_ADDRESS = 30;
+    public static final Duration WINDOW = Duration.ofMinutes(15);
+    public static final int PER_PHONE = 6;
+    public static final int PER_ADDRESS = 30;
 
     private final Map<String, Deque<Instant>> failures = new ConcurrentHashMap<>();
     private final Clock clock;
@@ -29,14 +28,14 @@ class SignInLimiter {
         this.clock = clock;
     }
 
-    void check(String phone, String address) {
+    public void check(String phone, String address) {
         if (count("p:" + phone) >= PER_PHONE || count("a:" + address) >= PER_ADDRESS) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "auth.too_many",
                     "Too many wrong passwords. Please wait 15 minutes and try again.");
         }
     }
 
-    void failed(String phone, String address) {
+    public void failed(String phone, String address) {
         Instant now = clock.instant();
         for (String key : new String[] {"p:" + phone, "a:" + address}) {
             failures.compute(key, (k, q) -> {
@@ -47,7 +46,7 @@ class SignInLimiter {
         }
     }
 
-    void succeeded(String phone) {
+    public void succeeded(String phone) {
         failures.remove("p:" + phone);
     }
 

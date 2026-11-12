@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.haat.store.support.ApiClient;
 import com.haat.store.support.ApiClient.Response;
 import com.haat.store.support.DemoData;
+import com.haat.store.shared.SignInLimiter;
 import com.haat.store.support.IntegrationTest;
 import java.util.HashMap;
 import java.util.List;

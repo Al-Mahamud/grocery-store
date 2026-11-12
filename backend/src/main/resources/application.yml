@@ -67,3 +67,10 @@ store:
       callback-url: ${store.web-url}
     jobs:
       enabled: true
+  admin:
+    # Packs at or below this stock show as running low.
+    low-stock: 10
+    # The first staff account, created at start-up when there is none yet (then remove these).
+    first-staff-name: ${ADMIN_NAME:Owner}
+    first-staff-phone: ${ADMIN_PHONE:}
+    first-staff-password: ${ADMIN_PASSWORD:}

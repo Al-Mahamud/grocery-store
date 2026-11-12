@@ -129,7 +129,7 @@ Cash-on-delivery orders start at PLACED.
 | 3 | Bag and checkout | quick add, bag, coupons, minimum order, areas, slots, substitutions, COD orders, tracking | done |
 | 4 | Accounts | register/sign in, bag merge, saved addresses, order history, buy again | done |
 | 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | done |
-| 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | |
+| 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | done |
 | 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | |
 | 8 | Launch readiness | Docker, Caddy, backups, CI, real payment credentials | |
 
@@ -189,3 +189,25 @@ Cash-on-delivery orders start at PLACED.
 - Local runs (`spring-boot:test-run`) use a fake gateway from the test sources with a "TEST GATEWAY
   · NOT REAL MONEY" page; it can pay with bKash/Nagad/card, fail or cancel. It never ships.
 - Callback paths skip the CSRF check, which is safe because they are verified with the gateway instead.
+
+### Notes from phase 6 (admin)
+
+- The admin area is at `/admin`. Staff have their own accounts (`staff` table), separate from
+  customers; a staff session carries ROLE_ADMIN, which `/api/v1/admin/**` requires, and every admin
+  request also checks the account is still active, so switching someone off works at once. The
+  first account comes from `ADMIN_PHONE` / `ADMIN_PASSWORD` (10+ characters) when there is none.
+  Adding and removing staff from the admin screens is not built yet.
+- Orders move PLACED → PACKING → OUT_FOR_DELIVERY → DELIVERED; any of those, and PENDING_PAYMENT,
+  can be cancelled. Cancelling gives the stock back unless "put back in stock" is unticked. A
+  delivered cash order is marked paid ("Cash collected"). Every change records which staff member did it.
+- Refunds: a cancelled order that was paid online shows as "Refund due". Staff refund it in the
+  SSLCommerz merchant panel and record the reference here; calling SSLCommerz's refund API directly
+  is left for later.
+- Picking list: one slot at a time, added up per pack and grouped by category (aisle), with each
+  order's items below; "Start packing all" moves the slot's new orders to packing; it prints cleanly.
+- Products are saved whole (details plus all packs); packs left out are removed. Pictures must be
+  JPEG, PNG or WebP (checked by their bytes; SVG is refused) up to 5 MB, stored under
+  `storage/products/`.
+- Slot capacity can be changed or closed for a single day (`slot_capacity`); the usual capacity
+  stays in `store.slots.capacity`. Areas are switched off rather than deleted, as old orders use them.
+- "Running low" means stock at or below `store.admin.low-stock` (10).

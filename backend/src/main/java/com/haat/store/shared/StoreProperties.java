@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /** Settings under {@code store.*} in application.yml. */
 @ConfigurationProperties("store")
 public record StoreProperties(Path storageRoot, String mediaUrl, String webUrl, Delivery delivery, Slots slots,
-                              Payment payment) {
+                              Payment payment, Admin admin) {
 
     /** Fees in taka. Delivery is free at or above {@code freeOver} after discounts. */
     public record Delivery(int fee, int freeOver, int minimumOrder) {
@@ -25,5 +25,9 @@ public record StoreProperties(Path storageRoot, String mediaUrl, String webUrl, 
      * customer may open the payment page for one order.
      */
     public record Payment(Duration expiry, int maxAttempts) {
+    }
+
+    /** The admin area: when stock counts as low, and the first staff account (from the environment). */
+    public record Admin(int lowStock, String firstStaffName, String firstStaffPhone, String firstStaffPassword) {
     }
 }

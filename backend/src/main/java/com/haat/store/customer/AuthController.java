@@ -5,6 +5,8 @@ import com.haat.store.customer.CustomerService.Profile;
 import com.haat.store.shared.ApiException;
 import com.haat.store.shared.BangladeshPhone;
 import com.haat.store.shared.CurrentCustomer;
+import com.haat.store.shared.LoginSessions;
+import com.haat.store.shared.SignInLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -89,7 +91,7 @@ class AuthController {
     }
 
     private void signIn(long customerId, HttpServletRequest request, HttpServletResponse response) {
-        sessions.start(customerId, request, response);
+        sessions.startCustomer(customerId, request, response);
         bags.claim(customerId, request, response);
     }
 

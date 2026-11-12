@@ -1,6 +1,5 @@
-package com.haat.store.customer;
+package com.haat.store.shared;
 
-import com.haat.store.shared.CurrentCustomer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -18,7 +17,7 @@ import org.springframework.stereotype.Component;
 
 /** Starts and ends server-side sessions (stored in PostgreSQL by Spring Session). */
 @Component
-class LoginSessions {
+public class LoginSessions {
 
     private final SecurityContextRepository contexts = new HttpSessionSecurityContextRepository();
     private final SecurityContextHolderStrategy holder = SecurityContextHolder.getContextHolderStrategy();
@@ -28,19 +27,29 @@ class LoginSessions {
         this.sessions = sessions;
     }
 
-    void start(long customerId, HttpServletRequest request, HttpServletResponse response) {
+    /** Signs in a customer ({@code customer:<id>}). */
+    public void startCustomer(long customerId, HttpServletRequest request, HttpServletResponse response) {
+        start(CurrentCustomer.PREFIX + customerId, "ROLE_CUSTOMER", request, response);
+    }
+
+    /** Signs in a member of staff ({@code staff:<id>}), who may use the admin area. */
+    public void startStaff(long staffId, HttpServletRequest request, HttpServletResponse response) {
+        start(CurrentStaff.PREFIX + staffId, "ROLE_ADMIN", request, response);
+    }
+
+    private void start(String principal, String role, HttpServletRequest request, HttpServletResponse response) {
         if (request.getSession(false) != null) {
             // A new session id at sign-in prevents session fixation.
             request.changeSessionId();
         }
         SecurityContext context = holder.createEmptyContext();
         context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
-                CurrentCustomer.PREFIX + customerId, null, List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))));
+                principal, null, List.of(new SimpleGrantedAuthority(role))));
         holder.setContext(context);
         contexts.saveContext(context, request, response);
     }
 
-    void end(HttpServletRequest request) {
+    public void end(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session != null) {
             session.invalidate();
@@ -49,10 +58,24 @@ class LoginSessions {
     }
 
     /** Signs the customer out everywhere except this browser (after a password change). */
-    void endOthers(long customerId, HttpServletRequest request) {
+    public void endOthers(long customerId, HttpServletRequest request) {
+        endOthers(CurrentCustomer.PREFIX + customerId, request);
+    }
+
+    /** Signs a member of staff out everywhere except this browser. */
+    public void endOtherStaffSessions(long staffId, HttpServletRequest request) {
+        endOthers(CurrentStaff.PREFIX + staffId, request);
+    }
+
+    /** Signs a member of staff out everywhere, e.g. when their access is removed. */
+    public void endAllStaffSessions(long staffId) {
+        sessions.findByPrincipalName(CurrentStaff.PREFIX + staffId).keySet().forEach(sessions::deleteById);
+    }
+
+    private void endOthers(String principal, HttpServletRequest request) {
         HttpSession current = request.getSession(false);
         String keep = current == null ? "" : current.getId();
-        sessions.findByPrincipalName(CurrentCustomer.PREFIX + customerId).keySet().stream()
+        sessions.findByPrincipalName(principal).keySet().stream()
                 .filter(id -> !id.equals(keep))
                 .forEach(sessions::deleteById);
     }

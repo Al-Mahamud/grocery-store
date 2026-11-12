@@ -15,6 +15,7 @@ import com.haat.store.order.OrderService.OrderView;
 import com.haat.store.order.OrderService.PastItem;
 import com.haat.store.shared.ApiException;
 import com.haat.store.shared.CurrentCustomer;
+import com.haat.store.shared.LoginSessions;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;

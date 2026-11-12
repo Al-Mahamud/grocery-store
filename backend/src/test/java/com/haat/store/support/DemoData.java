@@ -292,6 +292,21 @@ public class DemoData {
     public static final String DEMO_PHONE = "01755555555";
     public static final String DEMO_PASSWORD = "haat-demo";
 
+    /** A demo staff account for the admin area. */
+    public static final String STAFF_PHONE = "01999999999";
+    public static final String STAFF_PASSWORD = "haat-admin-1";
+
+    /** Guest orders waiting in tomorrow's 10 am–12 pm slot: name, phone, area, status, then slug/label/quantity. */
+    static final List<Object[]> QUEUE = List.of(
+            new Object[] {"Sabrina Chowdhury", "01712000001", "Gulshan", "PLACED", "miniket-rice", "5 kg", 1,
+                    "farm-eggs-brown", "12 pcs", 1, "pasteurised-milk", "1 L", 2, "deshi-red-onion", "1 kg", 1},
+            new Object[] {"Kamrul Hasan", "01812000002", "Banani", "PLACED", "soybean-oil", "2 L", 1,
+                    "deshi-red-onion", "1 kg", 2, "diamond-potato", "1 kg", 2, "green-chilli", "250 g", 1},
+            new Object[] {"Nadia Islam", "01912000003", "Uttara", "PLACED", "farm-eggs-brown", "12 pcs", 2,
+                    "pure-ghee", "400 g", 1, "pasteurised-milk", "1 L", 1},
+            new Object[] {"Tanvir Ahmed", "01612000004", "Mirpur", "PACKING", "miniket-rice", "5 kg", 2,
+                    "soybean-oil", "2 L", 1, "diamond-potato", "1 kg", 1});
+
     /** Earlier orders of the demo customer: days ago, then product slug and pack label pairs with quantities. */
     static final List<Object[]> DEMO_ORDERS = List.of(
             new Object[] {3, "DELIVERED", "miniket-rice", "5 kg", 1, "soybean-oil", "2 L", 1, "farm-eggs-brown", "12 pcs", 2,
@@ -352,6 +367,57 @@ public class DemoData {
                          where p.category_id in (select id from categories where id = c.id or parent_id = c.id)
                          order by p.sold_count desc limit 1)""").update();
             demoCustomer(now);
+            jdbc.sql("insert into staff (name, phone, password_hash) values ('Rina (shop manager)', :p, :h)")
+                    .param("p", STAFF_PHONE).param("h", passwords.encode(STAFF_PASSWORD)).update();
+            demoQueue(now);
+        }
+
+        private void demoQueue(Instant now) {
+            java.time.LocalDate tomorrow = now.atZone(java.time.ZoneId.of("Asia/Dhaka")).toLocalDate().plusDays(1);
+            int minutes = 200;
+            for (Object[] o : QUEUE) {
+                Instant placed = now.minus(Duration.ofMinutes(minutes -= 35));
+                long area = jdbc.sql("select id from delivery_areas where name = :n").param("n", o[2]).query(Long.class).single();
+                String number = "HT" + jdbc.sql("select nextval('order_number_seq')").query(Long.class).single();
+                long order = jdbc.sql("""
+                                insert into orders (number, access_token, name, phone, address, area_id, area_name,
+                                                    slot_date, slot_start, slot_end, substitution, subtotal, delivery_fee,
+                                                    total, payment_method, status, created_at, updated_at)
+                                values (:number, md5(random()::text), :name, :phone, 'House 5, Road 2', :area, :areaName,
+                                        :day, '10:00', '12:00', 'CALL', 0, 0, 0, 'COD', :status, :at, :at)
+                                returning id""")
+                        .param("number", number).param("name", o[0]).param("phone", o[1]).param("area", area)
+                        .param("areaName", o[2]).param("day", java.sql.Date.valueOf(tomorrow)).param("status", o[3])
+                        .param("at", Timestamp.from(placed))
+                        .query(Long.class).single();
+                for (int i = 4; i < o.length; i += 3) {
+                    jdbc.sql("""
+                                    insert into order_items (order_id, pack_id, product_id, product_slug, product_name,
+                                                             pack_label, sku, image_url, unit_price, quantity)
+                                    select :o, k.id, p.id, p.slug, p.name, k.label, k.sku, p.image_url, k.price, :q
+                                      from packs k join products p on p.id = k.product_id
+                                     where p.slug = :slug and k.label = :label""")
+                            .param("o", order).param("slug", o[i]).param("label", o[i + 1]).param("q", o[i + 2])
+                            .update();
+                }
+                // Waiting orders have taken their stock, as real ones do.
+                jdbc.sql("""
+                                update packs k set stock = greatest(0, k.stock - i.quantity)
+                                  from order_items i where i.order_id = :o and i.pack_id = k.id""")
+                        .param("o", order).update();
+                jdbc.sql("""
+                                update orders o set subtotal = s.sum, total = s.sum + case when s.sum >= 1500 then 0 else 49 end,
+                                                    delivery_fee = case when s.sum >= 1500 then 0 else 49 end
+                                  from (select sum(unit_price * quantity) as sum from order_items where order_id = :o) s
+                                 where o.id = :o""")
+                        .param("o", order).update();
+                jdbc.sql("insert into order_events (order_id, status, actor, created_at) values (:o, 'PLACED', 'customer', :at)")
+                        .param("o", order).param("at", Timestamp.from(placed)).update();
+                if (o[3].equals("PACKING")) {
+                    jdbc.sql("insert into order_events (order_id, status, actor) values (:o, 'PACKING', 'staff:Rina (shop manager)')")
+                            .param("o", order).update();
+                }
+            }
         }
 
         private void demoCustomer(Instant now) {

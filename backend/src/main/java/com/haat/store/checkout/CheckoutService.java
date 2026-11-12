@@ -2,6 +2,7 @@ package com.haat.store.checkout;
 
 import com.haat.store.checkout.CartService.Line;
 import com.haat.store.delivery.DeliveryService;
+import com.haat.store.payment.PaymentService;
 import com.haat.store.shared.ApiException;
 import com.haat.store.shared.StoreProperties;
 import java.security.SecureRandom;
@@ -50,14 +51,16 @@ public class CheckoutService {
     private final Coupons coupons;
     private final DeliveryService delivery;
     private final StoreProperties.Delivery fees;
+    private final PaymentService payments;
     private final Clock clock;
 
     CheckoutService(JdbcClient jdbc, CartService carts, Coupons coupons, DeliveryService delivery,
-                    StoreProperties properties, Clock clock) {
+                    StoreProperties properties, PaymentService payments, Clock clock) {
         this.jdbc = jdbc;
         this.carts = carts;
         this.coupons = coupons;
         this.delivery = delivery;
+        this.payments = payments;
         this.fees = properties.delivery();
         this.clock = clock;
     }
@@ -131,10 +134,11 @@ public class CheckoutService {
         long orderId = jdbc.sql("""
                         insert into orders (number, access_token, customer_id, name, phone, email, address, area_id,
                                             area_name, note, slot_date, slot_start, slot_end, substitution, subtotal,
-                                            discount, delivery_fee, total, coupon_code, payment_method, status)
+                                            discount, delivery_fee, total, coupon_code, payment_method, status,
+                                            payment_expires_at)
                         values (:number, :token, :customerId, :name, :phone, :email, :address, :areaId, :areaName,
                                 :note, :slotDate, :slotStart, :slotEnd, :substitution, :subtotal, :discount, :fee,
-                                :total, :coupon, :method, :status)
+                                :total, :coupon, :method, :status, :expires)
                         returning id""")
                 .param("number", number).param("token", token).param("customerId", customerId)
                 .param("name", customer.name()).param("phone", customer.phone()).param("email", customer.email())
@@ -144,6 +148,7 @@ public class CheckoutService {
                 .param("substitution", substitution.name()).param("subtotal", quote.subtotal())
                 .param("discount", quote.discount()).param("fee", quote.deliveryFee()).param("total", quote.total())
                 .param("coupon", quote.couponCode()).param("method", method.name()).param("status", status)
+                .param("expires", method == PaymentMethod.ONLINE ? java.sql.Timestamp.from(payments.holdUntil()) : null)
                 .query(Long.class).single();
         for (Line line : lines) {
             jdbc.sql("""

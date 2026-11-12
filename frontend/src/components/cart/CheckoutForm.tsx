@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Banknote, Check, CreditCard, Lock, PhoneCall, Plus, Repeat, Trash2 } from "lucide-react";
 import { ApiError, request } from "@/lib/client";
 import { taka } from "@/lib/money";
-import type { Area, Day, Quote, SavedAddress } from "@/lib/types";
+import type { Area, Day, PaymentOptions, Quote, SavedAddress } from "@/lib/types";
 import { useAccount } from "@/components/account/AccountProvider";
 import { Field } from "@/components/ui/Field";
 import { useCart } from "./CartProvider";
@@ -24,6 +24,8 @@ export function CheckoutForm() {
   const [saved, setSaved] = useState<SavedAddress[]>([]);
   const [chosen, setChosen] = useState<number | "new">("new");
   const [saveAddress, setSaveAddress] = useState(true);
+  const [method, setMethod] = useState<"COD" | "ONLINE">("COD");
+  const [payOptions, setPayOptions] = useState<PaymentOptions | null>(null);
   const [form, setForm] = useState<Form>({ name: "", phone: "", email: "", address: "", areaId: "", note: "", substitution: "REPLACE" });
   const [areas, setAreas] = useState<Area[]>([]);
   const [days, setDays] = useState<Day[]>([]);
@@ -38,6 +40,7 @@ export function CheckoutForm() {
 
   useEffect(() => {
     request<Area[]>("GET", "/delivery/areas").then(setAreas).catch(() => setAreas([]));
+    request<PaymentOptions>("GET", "/payments/options").then(setPayOptions).catch(() => setPayOptions(null));
     request<Day[]>("GET", "/delivery/slots")
       .then((list) => {
         setDays(list);
@@ -122,7 +125,7 @@ export function CheckoutForm() {
         areaId: form.areaId ? Number(form.areaId) : null,
         slotDate: slot.date,
         slotStart: slot.start,
-        paymentMethod: "COD",
+        paymentMethod: method,
         saveAddress: Boolean(me) && chosen === "new" && saveAddress,
       });
       try {
@@ -130,6 +133,10 @@ export function CheckoutForm() {
         localStorage.setItem(SAVED, JSON.stringify({ name, phone, email, address, areaId, substitution }));
       } catch {
         // Not remembering is fine.
+      }
+      if (placed.paymentUrl) {
+        window.location.assign(placed.paymentUrl);
+        return;
       }
       router.replace(`/order/${placed.number}?t=${encodeURIComponent(placed.token)}`);
       void refresh();
@@ -248,16 +255,22 @@ export function CheckoutForm() {
         </Section>
 
         <Section n={4} title="Payment">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex items-center gap-3 rounded-xl border-2 border-tangerine bg-tangerine-soft p-3">
-              <Banknote size={22} className="text-tangerine" />
-              <span><span className="block text-sm font-bold">Cash on delivery</span><span className="block text-xs text-muted">Check your items, then pay the rider</span></span>
-            </div>
-            <div className="flex items-center gap-3 rounded-xl border-2 border-line p-3 opacity-60">
-              <CreditCard size={22} />
-              <span><span className="block text-sm font-bold">bKash, Nagad or card</span><span className="block text-xs text-muted">Coming soon</span></span>
-            </div>
+          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
+            <PayChoice selected={method === "COD"} onSelect={() => setMethod("COD")} icon={<Banknote size={22} />} title="Cash on delivery" text="Check your items, then pay the rider" />
+            <PayChoice
+              selected={method === "ONLINE"}
+              onSelect={() => setMethod("ONLINE")}
+              disabled={!payOptions?.online}
+              icon={<CreditCard size={22} />}
+              title="bKash, Nagad or card"
+              text={payOptions?.online ? "Pay now on the secure SSLCommerz page" : "Not available right now"}
+            />
           </div>
+          {method === "ONLINE" && payOptions && (
+            <p className="mt-3 rounded-xl bg-cream px-4 py-3 text-xs text-ink-soft">
+              After you place the order you&rsquo;ll pay on SSLCommerz. Your items and slot are held for {payOptions.holdMinutes} minutes; if the payment doesn&rsquo;t go through you can try again or switch to cash.
+            </p>
+          )}
         </Section>
       </div>
 
@@ -290,7 +303,7 @@ export function CheckoutForm() {
           </div>
           {(formError || quote?.problem) && <p role="alert" className="rounded-xl bg-berry/10 p-3 text-sm font-semibold text-berry">{formError ?? quote?.problem}</p>}
           <button type="submit" disabled={placing || !cart?.canCheckout} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-tangerine font-bold text-white transition hover:bg-tangerine-dark disabled:cursor-not-allowed disabled:opacity-50">
-            <Lock size={16} /> {placing ? "Placing order…" : `Place order${quote ? ` · ${taka(quote.total)}` : ""}`}
+            <Lock size={16} /> {placing ? (method === "ONLINE" ? "Opening payment…" : "Placing order…") : `${method === "ONLINE" ? "Place order & pay" : "Place order"}${quote ? ` · ${taka(quote.total)}` : ""}`}
           </button>
         </div>
       </aside>
@@ -311,4 +324,20 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 
 function fromSaved(a: SavedAddress) {
   return { name: a.name, phone: a.phone, address: a.address, areaId: String(a.areaId), note: a.note ?? "" };
+}
+
+function PayChoice({ selected, onSelect, disabled = false, icon, title, text }: { selected: boolean; onSelect: () => void; disabled?: boolean; icon: React.ReactNode; title: string; text: string }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={disabled}
+      onClick={onSelect}
+      className={`flex items-center gap-3 rounded-xl border-2 p-3 text-left transition ${selected ? "border-tangerine bg-tangerine-soft" : "border-line hover:border-ink/40"} disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line`}
+    >
+      <span className={selected ? "text-tangerine" : "text-ink-soft"}>{icon}</span>
+      <span><span className="block text-sm font-bold">{title}</span><span className="block text-xs text-muted">{text}</span></span>
+    </button>
+  );
 }

@@ -6,6 +6,7 @@ import com.haat.store.checkout.CheckoutService.Quote;
 import com.haat.store.checkout.CheckoutService.Substitution;
 import com.haat.store.shared.ApiException;
 import com.haat.store.customer.AddressService;
+import com.haat.store.payment.PaymentService;
 import com.haat.store.shared.BangladeshPhone;
 import com.haat.store.shared.CurrentCustomer;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,11 +53,13 @@ class CheckoutController {
     private final CheckoutService checkout;
     private final Bags bags;
     private final AddressService addresses;
+    private final PaymentService payments;
 
-    CheckoutController(CheckoutService checkout, Bags bags, AddressService addresses) {
+    CheckoutController(CheckoutService checkout, Bags bags, AddressService addresses, PaymentService payments) {
         this.checkout = checkout;
         this.bags = bags;
         this.addresses = addresses;
+        this.payments = payments;
     }
 
     @PostMapping("/quote")
@@ -72,8 +75,8 @@ class CheckoutController {
         String phone = BangladeshPhone.normalise(body.phone()).orElseThrow(() -> new ApiException(
                 HttpStatus.BAD_REQUEST, "request.invalid", "Please check the highlighted fields.",
                 Map.of("phone", "Enter an 11-digit mobile number, like 01712345678.")));
-        if (body.paymentMethod() == PaymentMethod.ONLINE) {
-            throw ApiException.badRequest("payment.unavailable", "Online payment is coming soon. Please choose cash on delivery.");
+        if (body.paymentMethod() == PaymentMethod.ONLINE && !payments.onlineAvailable()) {
+            throw ApiException.badRequest("payment.unavailable", "Online payment isn't available right now. Please choose cash on delivery.");
         }
         Customer customer = new Customer(body.name().trim(), phone, blankToNull(body.email()), body.address().trim(),
                 body.areaId(), blankToNull(body.note()));
@@ -84,7 +87,15 @@ class CheckoutController {
                     phone, customer.address(), customer.areaId(), null));
         }
         bags.forget(request, response);
-        return new Placed(placed.number(), placed.accessToken(), placed.total(), null);
+        String paymentUrl = null;
+        if (body.paymentMethod() == PaymentMethod.ONLINE) {
+            try {
+                paymentUrl = payments.start(placed.orderId());
+            } catch (ApiException e) {
+                // The order is saved and waits for payment; its page offers to try again.
+            }
+        }
+        return new Placed(placed.number(), placed.accessToken(), placed.total(), paymentUrl);
     }
 
     private static String blankToNull(String value) {

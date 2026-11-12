@@ -42,3 +42,7 @@ cd frontend
 npm install
 npm run dev       # http://localhost:3000
 ```
+
+Online payment in local runs goes to a fake SSLCommerz page (test sources only, no real money). For
+the real sandbox, set `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD` and a public `WEB_URL` the
+gateway can reach.

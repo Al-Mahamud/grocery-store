@@ -128,7 +128,7 @@ Cash-on-delivery orders start at PLACED.
 | 2 | Storefront | design system, header with live search, home, category pages, product page | done |
 | 3 | Bag and checkout | quick add, bag, coupons, minimum order, areas, slots, substitutions, COD orders, tracking | done |
 | 4 | Accounts | register/sign in, bag merge, saved addresses, order history, buy again | done |
-| 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | |
+| 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | done |
 | 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | |
 | 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | |
 | 8 | Launch readiness | Docker, Caddy, backups, CI, real payment credentials | |
@@ -168,3 +168,24 @@ Cash-on-delivery orders start at PLACED.
   earlier quantity within stock and limits, and lists anything sold out.
 - The phone menu, filters and bag drawers render into `<body>`: the sticky header's blur made them
   only as tall as the header before.
+
+### Notes from phase 5 (online payment)
+
+- An online order is saved as PENDING_PAYMENT and holds its stock and slot for 30 minutes
+  (`store.payment.expiry`). The shopper goes to SSLCommerz's page (bKash, Nagad, Rocket, cards).
+- Nothing the gateway or the browser sends is believed by itself. Every callback is stored in
+  `gateway_callbacks`; a payment counts only when SSLCommerz's Validation API confirms the `val_id`
+  for the same `tran_id`, in BDT, for the exact amount. Confirming twice changes nothing.
+- Three ways a payment is noticed: the IPN, the browser coming back (checked at once, so the shopper
+  doesn't wait), and a job every minute that asks the gateway about attempts waiting over 2 minutes.
+  The same job cancels orders whose time ran out and gives back stock, sales counts and coupon use.
+- Each try is a new attempt (`HT10001-1`, `-2` ...; at most 5). After a failed or cancelled payment
+  the order page offers "Pay now" again or "Pay cash on delivery instead".
+- Money that arrives after an order was cancelled is recorded (payment PAID, order stays cancelled,
+  an event says "Refund it") for the admin to refund in phase 6.
+- Settings: `SSLCOMMERZ_STORE_ID`, `SSLCOMMERZ_STORE_PASSWORD`, `SSLCOMMERZ_BASE_URL` (sandbox by
+  default; `https://securepay.sslcommerz.com` for live) and `WEB_URL`, the public shop address the
+  gateway posts back to. Online payment is hidden until the credentials are set.
+- Local runs (`spring-boot:test-run`) use a fake gateway from the test sources with a "TEST GATEWAY
+  · NOT REAL MONEY" page; it can pay with bKash/Nagad/card, fail or cancel. It never ships.
+- Callback paths skip the CSRF check, which is safe because they are verified with the gateway instead.

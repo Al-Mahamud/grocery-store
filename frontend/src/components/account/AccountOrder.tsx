@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { ApiError, request } from "@/lib/client";
 import type { OrderView } from "@/lib/types";
 import { OrderDetails, StatusTimeline } from "@/components/order/OrderDetails";
+import { PaymentPanel } from "@/components/payment/PaymentPanel";
 import { StatusPill } from "./StatusPill";
 import { useReorder } from "./useReorder";
 
@@ -14,11 +15,12 @@ export function AccountOrder({ number }: { number: string }) {
   const [error, setError] = useState<string | null>(null);
   const { reorder, busy } = useReorder();
 
-  useEffect(() => {
+  const load = useCallback(() => {
     request<OrderView>("GET", `/account/orders/${encodeURIComponent(number)}`)
       .then(setOrder)
       .catch((e) => setError(e instanceof ApiError && e.status === 404 ? "We couldn't find that order in your account." : "We couldn't load this order. Please refresh."));
   }, [number]);
+  useEffect(load, [load]);
 
   return (
     <div className="space-y-4">
@@ -37,7 +39,11 @@ export function AccountOrder({ number }: { number: string }) {
               <RotateCcw size={15} /> {busy ? "Adding…" : "Order again"}
             </button>
           </div>
-          <div className="rounded-3xl bg-white p-5 md:p-6"><StatusTimeline order={order} /></div>
+          {order.status === "PENDING_PAYMENT" ? (
+            <PaymentPanel order={order} onChanged={load} />
+          ) : (
+            <div className="rounded-3xl bg-white p-5 md:p-6"><StatusTimeline order={order} /></div>
+          )}
           <OrderDetails order={order} />
         </>
       )}

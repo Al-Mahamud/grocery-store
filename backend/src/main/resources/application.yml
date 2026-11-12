@@ -39,6 +39,8 @@ management:
 store:
   storage-root: ${STORAGE_ROOT:storage}
   media-url: /media
+  # Where shoppers' browsers open the shop; payment pages send them back here.
+  web-url: ${WEB_URL:http://localhost:3000}
   delivery:
     fee: 49
     free-over: 1500
@@ -52,3 +54,16 @@ store:
     capacity: 25
     # A slot stops taking orders this long before it starts.
     cutoff: 2h
+  payment:
+    # An unpaid online order holds its stock and slot this long, then is cancelled.
+    expiry: 30m
+    max-attempts: 5
+    sslcommerz:
+      # Credentials from the environment; online payment stays off until both are set.
+      store-id: ${SSLCOMMERZ_STORE_ID:}
+      store-password: ${SSLCOMMERZ_STORE_PASSWORD:}
+      base-url: ${SSLCOMMERZ_BASE_URL:https://sandbox.sslcommerz.com}
+      # The address SSLCommerz posts to (return pages and IPN): the public shop address.
+      callback-url: ${store.web-url}
+    jobs:
+      enabled: true

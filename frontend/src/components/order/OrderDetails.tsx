@@ -29,6 +29,12 @@ export function StatusTimeline({ order }: { order: OrderView }) {
   );
 }
 
+function paymentText(order: OrderView): string {
+  if (order.paymentStatus === "PAID") return order.status === "CANCELLED" ? "Paid online, refund due" : "Paid online";
+  if (order.paymentMethod === "COD") return `Cash on delivery (${taka(order.total)})`;
+  return order.status === "CANCELLED" ? "Not paid" : "Online, waiting for payment";
+}
+
 /* eslint-disable @next/next/no-img-element */
 export function OrderDetails({ order }: { order: OrderView }) {
   return (
@@ -61,7 +67,7 @@ export function OrderDetails({ order }: { order: OrderView }) {
         </div>
         <div className="rounded-3xl bg-white p-5 text-sm md:p-6">
           <p><span className="text-muted">If out of stock:</span> <strong>{substitutionText[order.substitution]}</strong></p>
-          <p className="mt-1"><span className="text-muted">Payment:</span> <strong>{order.paymentMethod === "COD" ? `Cash on delivery (${taka(order.total)})` : "Online"}</strong></p>
+          <p className="mt-1"><span className="text-muted">Payment:</span> <strong>{paymentText(order)}</strong></p>
         </div>
       </div>
     </div>

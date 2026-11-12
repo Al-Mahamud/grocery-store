@@ -6,3 +6,12 @@ server:
 
 store:
   storage-root: ${java.io.tmpdir}/haat-test-storage/${random.uuid}
+  web-url: http://shop.test
+  payment:
+    jobs:
+      enabled: false
+    sslcommerz:
+      store-id: test-store
+      store-password: test-password
+      base-url: http://localhost:${local.server.port}/api/v1/test-gateway
+      callback-url: http://localhost:${local.server.port}

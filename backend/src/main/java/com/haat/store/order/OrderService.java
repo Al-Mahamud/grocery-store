@@ -2,6 +2,7 @@ package com.haat.store.order;
 
 import com.haat.store.shared.ApiException;
 import com.haat.store.shared.BangladeshPhone;
+import com.haat.store.shared.CurrentCustomer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -29,7 +30,8 @@ public class OrderService {
     public record OrderView(String number, String status, String paymentMethod, String paymentStatus,
                             Instant placedAt, String name, String phone, String email, String address, String area,
                             String note, Slot slot, String substitution, List<Item> items, int subtotal,
-                            int discount, int deliveryFee, int total, String couponCode, List<Event> events) {
+                            int discount, int deliveryFee, int total, String couponCode, List<Event> events,
+                            Instant paymentExpiresAt) {
     }
 
     /** One line in a customer's order history. */
@@ -75,6 +77,22 @@ public class OrderService {
 
     public Optional<OrderView> byId(long id) {
         return row("o.id = :v", id).map(Row::view);
+    }
+
+    /**
+     * The id of an order the caller may act on: whoever holds its access token (the link on the
+     * thank-you page), or the signed-in customer who placed it.
+     */
+    public long idFor(String number, String token) {
+        Row row = row("o.number = :v", number == null ? "" : number.trim().toUpperCase())
+                .orElseThrow(() -> ApiException.notFound("order"));
+        boolean tokenOk = token != null && MessageDigest.isEqual(row.token().getBytes(StandardCharsets.UTF_8),
+                token.getBytes(StandardCharsets.UTF_8));
+        boolean owner = CurrentCustomer.id().map(c -> ownedBy(row.id(), c)).orElse(false);
+        if (!tokenOk && !owner) {
+            throw ApiException.notFound("order");
+        }
+        return row.id();
     }
 
     /** A signed-in customer's own order. */
@@ -164,7 +182,7 @@ public class OrderService {
         return jdbc.sql("""
                         select access_token, number, status, payment_method, payment_status, created_at, name, phone,
                                email, address, area_name, note, slot_date, slot_start, slot_end, substitution,
-                               subtotal, discount, delivery_fee, total, coupon_code
+                               subtotal, discount, delivery_fee, total, coupon_code, payment_expires_at
                           from orders where id = :id""")
                 .param("id", orderId)
                 .query((rs, n) -> new Row(orderId, rs.getString(1), new OrderView(rs.getString(2), rs.getString(3),
@@ -172,7 +190,8 @@ public class OrderService {
                         rs.getString(8), rs.getString(9), rs.getString(10), rs.getString(11), rs.getString(12),
                         new Slot(rs.getDate(13).toLocalDate(), rs.getTime(14).toLocalTime(), rs.getTime(15).toLocalTime()),
                         rs.getString(16), items, rs.getInt(17), rs.getInt(18), rs.getInt(19), rs.getInt(20),
-                        rs.getString(21), events)))
+                        rs.getString(21), events,
+                        rs.getTimestamp(22) == null ? null : rs.getTimestamp(22).toInstant())))
                 .optional();
     }
 }

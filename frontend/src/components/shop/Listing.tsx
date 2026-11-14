@@ -26,6 +26,8 @@ export async function Listing({
   hideDeal?: boolean;
 }) {
   const query = productQuery(scope, searchParams);
+  // Filters or a search the shopper chose (sorting doesn't narrow anything).
+  const narrowed = Object.keys(searchParams).some((k) => k !== "sort" && k !== "page") || "q" in scope;
   const [page, tree] = await Promise.all([api.products(query), api.categories()]);
   return (
     <div className="container-page grid gap-6 pt-5 lg:grid-cols-[16rem_1fr] xl:gap-8">
@@ -60,8 +62,8 @@ export async function Listing({
         {page.items.length === 0 ? (
           <div className="grid place-items-center rounded-3xl bg-white px-6 py-20 text-center">
             <SearchX size={32} className="text-muted" />
-            <p className="mt-3 font-display text-2xl font-bold">Nothing found</p>
-            <p className="mt-1 text-sm text-muted">Try another word or remove a filter.</p>
+            <p className="mt-3 font-display text-2xl font-bold">{narrowed ? "Nothing found" : "Nothing here yet"}</p>
+            <p className="mt-1 text-sm text-muted">{narrowed ? "Try another word or remove a filter." : "New products are on their way. Have a look in the other aisles."}</p>
           </div>
         ) : (
           <LoadMoreGrid key={query.toString()} initial={page} query={query.toString()} />

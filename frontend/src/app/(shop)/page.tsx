@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BadgePercent, Clock, Leaf, ShieldCheck, Truck } from "lucide-react";
 import { api } from "@/lib/api";
 import { site } from "@/config/site";
-import { nextSlot } from "@/lib/grocery";
+import { nextSlot, percentOffPack } from "@/lib/grocery";
 import { taka } from "@/lib/money";
 import type { ProductCard } from "@/lib/types";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
@@ -45,6 +45,8 @@ export default async function HomePage() {
   const next = nextSlot(days);
   const subcategories = home.categories.flatMap((top) => top.children);
   const veg = home.fresh.filter((p) => p.category === "Vegetables").slice(0, 4);
+  // The deals tile shows the real best saving, and only when there are deals.
+  const bestDeal = Math.max(0, ...home.deals.flatMap((p) => p.packs.map((k) => percentOffPack(k) ?? 0)));
 
   return (
     <div className="container-page space-y-12 pt-4 md:space-y-16 md:pt-6">
@@ -68,12 +70,20 @@ export default async function HomePage() {
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <Link href="/deals" className="group relative overflow-hidden rounded-3xl bg-sun p-6">
-            <BadgePercent size={28} />
-            <p className="mt-6 font-display text-3xl font-extrabold leading-none">Up to 15% off</p>
-            <p className="mt-1 text-sm font-semibold text-ink-soft">on staples, dairy and snacks this week</p>
-            <ArrowRight className="absolute bottom-6 right-6 transition-transform group-hover:translate-x-1" />
-          </Link>
+          {bestDeal > 0 ? (
+            <Link href="/deals" className="group relative overflow-hidden rounded-3xl bg-sun p-6">
+              <BadgePercent size={28} />
+              <p className="mt-6 font-display text-3xl font-extrabold leading-none">Up to {bestDeal}% off</p>
+              <p className="mt-1 text-sm font-semibold text-ink-soft">{home.deals.length} deal{home.deals.length === 1 ? "" : "s"} this week, while stocks last</p>
+              <ArrowRight className="absolute bottom-6 right-6 transition-transform group-hover:translate-x-1" />
+            </Link>
+          ) : (
+            <div className="relative overflow-hidden rounded-3xl bg-sun p-6">
+              <Clock size={28} />
+              <p className="mt-6 font-display text-3xl font-extrabold leading-none">8 am – 10 pm</p>
+              <p className="mt-1 text-sm font-semibold text-ink-soft">Two-hour delivery slots, every day of the week</p>
+            </div>
+          )}
           <div className="relative overflow-hidden rounded-3xl bg-ink p-6 text-white">
             <Truck size={28} className="text-sun" />
             <p className="mt-6 font-display text-3xl font-extrabold leading-none">Free delivery</p>
@@ -103,10 +113,12 @@ export default async function HomePage() {
       <Rail title="Today's deals" note="Prices drop while stocks last" href="/deals" products={home.deals} />
       <Rail title={<>Fresh today <Leaf className="inline text-leaf" size={22} /></>} note="Arrives at our hub every morning" href="/c/fresh" products={home.fresh} />
 
-      <section>
-        <SectionHeading title="Best sellers" note="What Dhaka is buying this week" />
-        <ProductGrid products={home.bestSellers} />
-      </section>
+      {home.bestSellers.length > 0 && (
+        <section>
+          <SectionHeading title="Best sellers" note="What Dhaka is buying this week" />
+          <ProductGrid products={home.bestSellers} />
+        </section>
+      )}
 
       <Rail title="Pantry staples" note="Rice, oil, dal and spices" href="/c/pantry" products={home.pantry} />
 

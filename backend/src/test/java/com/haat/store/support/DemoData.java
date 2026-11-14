@@ -256,33 +256,8 @@ public class DemoData {
                     List.of(p("140 g", "140", "G", 150)))
     );
 
-    static final List<String[]> CATEGORIES = List.of(
-            new String[] {null, "Fresh", "fresh", "leaf", "#E5F4E3"},
-            new String[] {"fresh", "Vegetables", "vegetables", "carrot", "#E5F4E3"},
-            new String[] {"fresh", "Fruits", "fruits", "apple", "#FFF0D6"},
-            new String[] {"fresh", "Fish & meat", "fish-meat", "fish", "#E2EEF9"},
-            new String[] {null, "Pantry", "pantry", "wheat", "#FBEBD3"},
-            new String[] {"pantry", "Rice & flour", "rice-flour", "wheat", "#FBEBD3"},
-            new String[] {"pantry", "Oil & ghee", "oil-ghee", "droplet", "#FFF4C2"},
-            new String[] {"pantry", "Dal & lentils", "dal", "bean", "#FDE4D3"},
-            new String[] {"pantry", "Spices, salt & sugar", "spices", "flame", "#FDE0DC"},
-            new String[] {null, "Dairy & breakfast", "dairy-breakfast", "milk", "#E5F0FF"},
-            new String[] {"dairy-breakfast", "Milk & dairy", "milk-dairy", "milk", "#E5F0FF"},
-            new String[] {"dairy-breakfast", "Eggs", "eggs", "egg", "#F8EEDF"},
-            new String[] {"dairy-breakfast", "Bread & bakery", "bakery", "croissant", "#F6E7D4"},
-            new String[] {null, "Snacks & drinks", "snacks-drinks", "cookie", "#F3E5F5"},
-            new String[] {"snacks-drinks", "Snacks & biscuits", "snacks", "cookie", "#F3E5F5"},
-            new String[] {"snacks-drinks", "Tea & coffee", "tea-coffee", "coffee", "#F1E4DA"},
-            new String[] {"snacks-drinks", "Drinks", "drinks", "cup-soda", "#E0F4F7"},
-            new String[] {null, "Home & care", "home-care", "sparkles", "#E6F2EE"},
-            new String[] {"home-care", "Cleaning", "cleaning", "spray-can", "#E6F2EE"},
-            new String[] {"home-care", "Personal care", "personal-care", "bath", "#FCE8EF"});
-
-    static final List<String> AREAS = List.of("Dhanmondi", "Gulshan", "Banani", "Baridhara", "Bashundhara R/A",
-            "Mohammadpur", "Lalmatia", "Mirpur", "Uttara", "Mohakhali", "Tejgaon", "Badda", "Rampura", "Khilgaon",
-            "Motijheel", "Old Dhaka");
-
     @Bean
+    @org.springframework.core.annotation.Order(1)
     ApplicationRunner demoDataLoader(JdbcClient jdbc, TransactionTemplate tx, StoreProperties properties,
                                      PasswordEncoder passwords) {
         return new Loader(jdbc, tx, properties.storageRoot().resolve("demo"), passwords);
@@ -338,20 +313,10 @@ public class DemoData {
         }
 
         private void load() {
-            for (int i = 0; i < CATEGORIES.size(); i++) {
-                String[] c = CATEGORIES.get(i);
-                long id = jdbc.sql("""
-                                insert into categories (parent_id, name, slug, icon, color, position)
-                                values (:parent, :name, :slug, :icon, :color, :position) returning id""")
-                        .param("parent", c[0] == null ? null : categories.get(c[0]))
-                        .param("name", c[1]).param("slug", c[2]).param("icon", c[3]).param("color", c[4])
-                        .param("position", i).query(Long.class).single();
-                categories.put(c[2], id);
-            }
-            for (int i = 0; i < AREAS.size(); i++) {
-                jdbc.sql("insert into delivery_areas (name, slug, position) values (:name, :slug, :position)")
-                        .param("name", AREAS.get(i)).param("slug", slug(AREAS.get(i))).param("position", i).update();
-            }
+            // Categories and areas come from the starter data (StarterCatalog runs first).
+            jdbc.sql("select id, slug from categories").query(rs -> {
+                categories.put(rs.getString(2), rs.getLong(1));
+            });
             coupon("WELCOME15", "15% off your first order (up to ৳150)", "PERCENT", 15, 150, 500, null);
             coupon("FRESH50", "৳50 off orders over ৳800", "FIXED", 50, null, 800, null);
             coupon("FREEDEL", "Free delivery on orders over ৳600", "FREE_SHIPPING", 0, null, 600, null);

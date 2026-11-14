@@ -131,7 +131,7 @@ Cash-on-delivery orders start at PLACED.
 | 5 | Online payment | SSLCommerz with a fake local gateway, payment expiry | done |
 | 6 | Admin | dashboard, products and packs, stock, orders and picking list, slots and areas, coupons | done |
 | 7 | Notifications and SEO | order SMS (confirmed, out for delivery), sitemap, metadata | done |
-| 8 | Launch readiness | Docker, Caddy, backups, CI, real payment credentials | |
+| 8 | Launch readiness | Docker, Caddy, backups, CI, real payment credentials | built; needs a server and accounts |
 
 ### Notes from building
 
@@ -237,3 +237,24 @@ Cash-on-delivery orders start at PLACED.
   Privacy should be read by a lawyer, before launch.
 - Demo product pictures are SVG, which social networks don't show in link previews; uploaded JPEG or
   PNG pictures are fine.
+
+### Notes from phase 8 (launch readiness)
+
+- `docs/DEPLOY.md` is the launch guide. `deploy/` holds the compose file (PostgreSQL 18, API,
+  website, Caddy), the Caddyfile (HTTPS, security headers, /api and /media straight to the API) and
+  `.env.example`; `scripts/backup.sh` and `restore.sh` back up and restore the database and pictures.
+- Docker can't run on the development machine, so the deployment is proven by the **Deploy drill**
+  GitHub workflow (build, start behind HTTPS, staff sign-in, backup, wipe, restore). The database half
+  of backup and restore was also tried locally: all 21 tables came back with identical row counts.
+- The `prod` profile trusts forwarded addresses only from private networks, logs JSON, and
+  `ProductionChecks` refuses to start with an http:// address, an empty database password, non-Secure
+  cookies, log-only texts (unless `STAGING=true`) or an http:// payment callback.
+- A new shop starts with the grocery categories and Dhaka areas (`StarterCatalog`, only while there
+  are no categories); the demo data now builds on them. The admin gained **Categories** (two levels;
+  a category's web address is fixed when made; only empty ones can be deleted) and **Team** (add,
+  switch off — which signs them out at once — reset someone's password, change your own; nobody can
+  switch themselves off, and the last active account stays on).
+- The home page shows the deals tile with the real best saving, and hides empty sections, so a new
+  shop with no products looks right.
+- Still needed from the owner: a server and domain, SSL Wireless and SSLCommerz accounts, contact
+  details in `site.ts`, a legal read of Terms and Privacy, and one real sandbox payment.

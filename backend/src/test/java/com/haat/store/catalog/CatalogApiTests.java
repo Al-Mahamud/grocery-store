@@ -155,4 +155,12 @@ class CatalogApiTests {
         nodes.forEach(n -> names.add(n.get("name").asString()));
         return names;
     }
+
+    @Test
+    void healthChecksAnswerWithoutSigningIn() {
+        ApiClient anyone = new ApiClient(port);
+        for (String path : java.util.List.of("/actuator/health", "/actuator/health/readiness", "/actuator/health/liveness")) {
+            assertThat(anyone.get(path).status()).as(path).isEqualTo(200);
+        }
+    }
 }

@@ -108,3 +108,6 @@ export type AdminArea = { id: number; name: string; slug: string; active: boolea
 
 export type Text = { id: number; phone: string; kind: "CODE" | "ORDER_PLACED" | "ORDER_ON_THE_WAY" | "ORDER_CANCELLED"; body: string; status: "QUEUED" | "SENDING" | "SENT" | "FAILED"; attempts: number; provider: string | null; error: string | null; orderNumber: string | null; createdAt: string; sentAt: string | null };
 export type TextPage = { items: Text[]; page: number; pageSize: number; total: number; counts: Record<string, number> };
+
+export type StaffRow = { id: number; name: string; phone: string; active: boolean; createdAt: string; lastSignedIn: string | null };
+export type CategoryAdmin = { id: number; parentId: number | null; name: string; slug: string; icon: string; color: string; position: number; products: number; children: CategoryAdmin[] };

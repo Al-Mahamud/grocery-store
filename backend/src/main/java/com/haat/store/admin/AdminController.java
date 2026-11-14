@@ -52,14 +52,39 @@ class AdminController {
     record AreaInput(String name, Boolean active) {
     }
 
+    record NewStaff(@NotBlank(message = "Enter their name.") @Size(max = 60, message = "Name is too long.") String name,
+                    @NotBlank(message = "Enter their mobile number.") String phone,
+                    @NotBlank(message = "Choose a starting password.")
+                    @Size(min = 10, max = 72, message = "Use at least 10 characters.") String password) {
+    }
+
+    record Activation(@NotNull Boolean active) {
+    }
+
+    record NewPassword(@NotBlank(message = "Choose a password.")
+                       @Size(min = 10, max = 72, message = "Use at least 10 characters.") String password) {
+    }
+
+    record OwnPassword(@NotBlank(message = "Enter your current password.") String currentPassword,
+                       @NotBlank(message = "Choose a new password.")
+                       @Size(min = 10, max = 72, message = "Use at least 10 characters.") String newPassword) {
+    }
+
+    record Move(int direction) {
+    }
+
     private final AdminOrders orders;
     private final AdminCatalog catalog;
     private final AdminSettings settings;
     private final DeliveryService delivery;
     private final StaffService staff;
+    private final AdminCategories categories;
+    private final com.haat.store.shared.LoginSessions sessions;
 
     AdminController(AdminOrders orders, AdminCatalog catalog, AdminSettings settings, DeliveryService delivery,
-                    StaffService staff) {
+                    StaffService staff, AdminCategories categories, com.haat.store.shared.LoginSessions sessions) {
+        this.categories = categories;
+        this.sessions = sessions;
         this.orders = orders;
         this.catalog = catalog;
         this.settings = settings;
@@ -198,6 +223,80 @@ class AdminController {
     @PutMapping("/areas/{id}")
     AdminSettings.AreaView updateArea(@PathVariable long id, @RequestBody AreaInput body) {
         return settings.saveArea(id, body.name(), body.active() == null || body.active());
+    }
+
+    // Staff
+
+    @GetMapping("/staff")
+    List<StaffService.StaffRow> staffList() {
+        return staff.list();
+    }
+
+    @PostMapping("/staff")
+    @ResponseStatus(HttpStatus.CREATED)
+    List<StaffService.StaffRow> addStaff(@Valid @RequestBody NewStaff body) {
+        String phone = com.haat.store.shared.BangladeshPhone.normalise(body.phone()).orElseThrow(() -> new ApiException(
+                HttpStatus.BAD_REQUEST, "request.invalid", "Please check the highlighted fields.",
+                Map.of("phone", "Enter an 11-digit mobile number, like 01712345678.")));
+        staff.add(body.name().trim(), phone, body.password());
+        return staff.list();
+    }
+
+    /** Switching someone off also signs them out everywhere at once. */
+    @PostMapping("/staff/{id}/active")
+    List<StaffService.StaffRow> setActive(@PathVariable long id, @Valid @RequestBody Activation body) {
+        staff.setActive(id, body.active(), CurrentStaff.require());
+        if (!body.active()) {
+            sessions.endAllStaffSessions(id);
+        }
+        return staff.list();
+    }
+
+    /** A new password for someone else (e.g. they forgot theirs); they are signed out everywhere. */
+    @PostMapping("/staff/{id}/password")
+    List<StaffService.StaffRow> resetStaffPassword(@PathVariable long id, @Valid @RequestBody NewPassword body) {
+        if (id == CurrentStaff.require()) {
+            throw ApiException.conflict("staff.self", "Change your own password under My password.");
+        }
+        staff.setPassword(id, body.password());
+        sessions.endAllStaffSessions(id);
+        return staff.list();
+    }
+
+    @PostMapping("/me/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void changeOwnPassword(@Valid @RequestBody OwnPassword body, jakarta.servlet.http.HttpServletRequest request) {
+        long me = CurrentStaff.require();
+        staff.changeOwnPassword(me, body.currentPassword(), body.newPassword());
+        sessions.endOtherStaffSessions(me, request);
+    }
+
+    // Categories
+
+    @GetMapping("/categories")
+    List<AdminCategories.Node> categories() {
+        return categories.tree();
+    }
+
+    @PostMapping("/categories")
+    @ResponseStatus(HttpStatus.CREATED)
+    List<AdminCategories.Node> createCategory(@RequestBody AdminCategories.Input body) {
+        return categories.create(body);
+    }
+
+    @PutMapping("/categories/{id}")
+    List<AdminCategories.Node> updateCategory(@PathVariable long id, @RequestBody AdminCategories.Input body) {
+        return categories.update(id, body);
+    }
+
+    @PostMapping("/categories/{id}/move")
+    List<AdminCategories.Node> moveCategory(@PathVariable long id, @RequestBody Move body) {
+        return categories.move(id, body.direction());
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/categories/{id}")
+    List<AdminCategories.Node> deleteCategory(@PathVariable long id) {
+        return categories.delete(id);
     }
 
     @GetMapping("/texts")

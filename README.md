@@ -55,3 +55,6 @@ Texts (SMS) in local runs are only logged; read them, including sign-up codes, a
 http://localhost:8080/api/v1/test-texts. For real texts set `SMS_DRIVER=sslwireless`,
 `SSLWIRELESS_API_TOKEN` and `SSLWIRELESS_SID`. Set `NEXT_PUBLIC_SITE_URL` to the public address
 before building the website for production.
+
+Putting the shop online: see [docs/DEPLOY.md](docs/DEPLOY.md) (Docker compose behind Caddy, backups,
+first staff account, payment and SMS settings).

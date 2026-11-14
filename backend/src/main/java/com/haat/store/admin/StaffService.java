@@ -25,6 +25,10 @@ public class StaffService implements ApplicationRunner {
     public record Staff(long id, String name, String phone) {
     }
 
+    public record StaffRow(long id, String name, String phone, boolean active, java.time.Instant createdAt,
+                           java.time.Instant lastSignedIn) {
+    }
+
     private record Credentials(long id, String hash, boolean active) {
     }
 
@@ -86,6 +90,65 @@ public class StaffService implements ApplicationRunner {
     /** Who did it, for order history: "staff:Rina". */
     public String actor(long id) {
         return "staff:" + find(id).map(Staff::name).orElse(String.valueOf(id));
+    }
+
+    public java.util.List<StaffRow> list() {
+        return jdbc.sql("select id, name, phone, active, created_at, last_signed_in from staff order by active desc, name")
+                .query((rs, n) -> new StaffRow(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getBoolean(4),
+                        rs.getTimestamp(5).toInstant(),
+                        rs.getTimestamp(6) == null ? null : rs.getTimestamp(6).toInstant()))
+                .list();
+    }
+
+    /** A new staff account with a starting password the person should change after signing in. */
+    @org.springframework.transaction.annotation.Transactional
+    public long add(String name, String phone, String password) {
+        try {
+            return create(name, phone, password);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            throw new ApiException(HttpStatus.CONFLICT, "staff.phone_taken", "Please check the highlighted fields.",
+                    java.util.Map.of("phone", "Someone on the team already uses this number."));
+        }
+    }
+
+    /**
+     * Switches an account on or off. Nobody can switch themselves off, and the last active account
+     * stays on, so the shop can't lock itself out.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void setActive(long id, boolean active, long actorId) {
+        // One change at a time, so two people can't switch each other off at once.
+        jdbc.sql("select pg_advisory_xact_lock(hashtext('staff'))").query(rs -> {
+        });
+        if (!active && id == actorId) {
+            throw ApiException.conflict("staff.self", "You can't switch off your own account.");
+        }
+        if (!active && jdbc.sql("select count(*) from staff where active and id <> :id").param("id", id)
+                .query(Integer.class).single() == 0) {
+            throw ApiException.conflict("staff.last", "The shop needs at least one active staff account.");
+        }
+        if (jdbc.sql("update staff set active = :a where id = :id").param("a", active).param("id", id).update() == 0) {
+            throw ApiException.notFound("staff");
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void setPassword(long id, String password) {
+        if (jdbc.sql("update staff set password_hash = :h where id = :id")
+                .param("h", passwords.encode(password)).param("id", id).update() == 0) {
+            throw ApiException.notFound("staff");
+        }
+    }
+
+    /** For staff changing their own password: the current one must be right. */
+    @org.springframework.transaction.annotation.Transactional
+    public void changeOwnPassword(long id, String current, String next) {
+        String hash = jdbc.sql("select password_hash from staff where id = :id").param("id", id).query(String.class).single();
+        if (!passwords.matches(current, hash)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "auth.wrong_password", "Please check the highlighted fields.",
+                    java.util.Map.of("currentPassword", "That isn't your current password."));
+        }
+        setPassword(id, next);
     }
 
     public Staff require(long id) {

@@ -281,4 +281,76 @@ class AdminTests {
         assertThat(shopper.get("/api/v1/delivery/slots").body().get(2).get("slots").get(0).get("remaining").asInt()).isEqualTo(25);
         assertThat(admin.put("/api/v1/admin/slots", Map.of("date", date, "start", "09:00", "capacity", 5)).status()).isEqualTo(409);
     }
+
+    @Test
+    void staffAreAddedSwitchedOffAndReset() {
+        Response weak = admin.post("/api/v1/admin/staff", Map.of("name", "Jamal", "phone", "01312345670", "password", "short"));
+        assertThat(weak.status()).isEqualTo(400);
+        admin.post("/api/v1/admin/staff", Map.of("name", "Jamal Packer", "phone", "01312345670", "password", "start-here-123"));
+        assertThat(admin.post("/api/v1/admin/staff", Map.of("name", "Again", "phone", "01312345670", "password", "start-here-123"))
+                .status()).isEqualTo(409);
+        long jamal = jdbc.sql("select id from staff where phone = '01312345670'").query(Long.class).single();
+
+        ApiClient jamalsPhone = new ApiClient(port);
+        assertThat(jamalsPhone.post("/api/v1/staff/login", Map.of("phone", "01312345670", "password", "start-here-123")).status())
+                .isEqualTo(200);
+        // Jamal changes the starting password.
+        assertThat(jamalsPhone.post("/api/v1/admin/me/password",
+                Map.of("currentPassword", "start-here-123", "newPassword", "jamal-own-pass")).status()).isEqualTo(204);
+
+        // Switched off: signed out at once and can't sign in again.
+        admin.post("/api/v1/admin/staff/" + jamal + "/active", Map.of("active", false));
+        assertThat(jamalsPhone.get("/api/v1/admin/dashboard").status()).isEqualTo(401);
+        assertThat(new ApiClient(port).post("/api/v1/staff/login", Map.of("phone", "01312345670", "password", "jamal-own-pass"))
+                .status()).isEqualTo(401);
+
+        // Back on, with a new password set by the manager.
+        admin.post("/api/v1/admin/staff/" + jamal + "/active", Map.of("active", true));
+        admin.post("/api/v1/admin/staff/" + jamal + "/password", Map.of("password", "manager-set-99"));
+        assertThat(new ApiClient(port).post("/api/v1/staff/login", Map.of("phone", "01312345670", "password", "manager-set-99"))
+                .status()).isEqualTo(200);
+
+        long me = jdbc.sql("select id from staff where phone = :p").param("p", DemoData.STAFF_PHONE).query(Long.class).single();
+        Response self = admin.post("/api/v1/admin/staff/" + me + "/active", Map.of("active", false));
+        assertThat(self.status()).isEqualTo(409);
+        assertThat(self.body().get("code").asString()).isEqualTo("staff.self");
+    }
+
+    @Test
+    void categoriesAreEditedButNeverLeftWithProductsInside() {
+        JsonNode tree = admin.get("/api/v1/admin/categories").body();
+        assertThat(tree).hasSize(5);
+        long pantry = StreamSupport.stream(tree.spliterator(), false).filter(c -> c.get("slug").asString().equals("pantry"))
+                .findFirst().orElseThrow().get("id").asLong();
+
+        Response bad = admin.post("/api/v1/admin/categories", Map.of("name", "X", "icon", "rocket", "color", "red", "parentId", pantry));
+        assertThat(bad.status()).isEqualTo(400);
+        assertThat(bad.body().get("fields").toString()).contains("name", "icon", "color");
+
+        Response addResponse = admin.post("/api/v1/admin/categories",
+                Map.of("name", "Baby food", "icon", "milk", "color", "#ffe0e0", "parentId", pantry));
+        assertThat(addResponse.status()).as(addResponse.body().toString()).isEqualTo(201);
+        JsonNode afterAdd = addResponse.body();
+        JsonNode baby = StreamSupport.stream(afterAdd.spliterator(), false).flatMap(c -> StreamSupport.stream(c.get("children").spliterator(), false))
+                .filter(c -> c.get("slug").asString().equals("baby-food")).findFirst().orElseThrow();
+        long babyId = baby.get("id").asLong();
+        assertThat(baby.get("color").asString()).isEqualTo("#FFE0E0");
+        // Three levels deep is refused.
+        assertThat(admin.post("/api/v1/admin/categories", Map.of("name", "Formula", "icon", "milk", "color", "#ffe0e0", "parentId", babyId))
+                .status()).isEqualTo(400);
+
+        // Renaming keeps the web address.
+        admin.put("/api/v1/admin/categories/" + babyId, Map.of("name", "Baby & toddler", "icon", "milk", "color", "#FFE0E0"));
+        assertThat(jdbc.sql("select slug from categories where id = :id").param("id", babyId).query(String.class).single())
+                .isEqualTo("baby-food");
+        JsonNode moved = admin.post("/api/v1/admin/categories/" + babyId + "/move", Map.of("direction", -1)).body();
+        JsonNode pantryNode = StreamSupport.stream(moved.spliterator(), false).filter(c -> c.get("id").asLong() == pantry).findFirst().orElseThrow();
+        assertThat(pantryNode.get("children").get(pantryNode.get("children").size() - 2).get("id").asLong()).isEqualTo(babyId);
+
+        long riceCategory = jdbc.sql("select id from categories where slug = 'rice-flour'").query(Long.class).single();
+        Response full = admin.delete("/api/v1/admin/categories/" + riceCategory);
+        assertThat(full.status()).isEqualTo(409);
+        assertThat(admin.delete("/api/v1/admin/categories/" + pantry).status()).isEqualTo(409);
+        assertThat(admin.delete("/api/v1/admin/categories/" + babyId).status()).isEqualTo(200);
+    }
 }

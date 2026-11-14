@@ -1,7 +1,7 @@
 # The API as a container: built from source, run as an unprivileged user with the prod profile.
 # Tests are not run here; CI runs them before anything is deployed.
 
-FROM eclipse-temurin:17-jdk AS build
+FROM eclipse-temurin:24-jdk AS build
 WORKDIR /src
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
@@ -10,7 +10,7 @@ COPY src/main src/main
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -q -B -Dmaven.test.skip=true package \
     && cp target/store-backend-*.jar app.jar
 
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:24-jre
 RUN useradd --system --uid 10001 --home-dir /app haat \
     && mkdir -p /var/lib/haat/storage \
     && chown haat /var/lib/haat/storage

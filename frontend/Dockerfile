@@ -1,6 +1,6 @@
 # The website as a container: Next.js's standalone server, run as the unprivileged node user.
 
-FROM node:22-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -12,7 +12,7 @@ ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ENV BACKEND_URL=$BACKEND_URL NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM node:22-bookworm-slim
+FROM node:25-bookworm-slim
 WORKDIR /app
 ARG BACKEND_URL=http://backend:8080
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 BACKEND_URL=$BACKEND_URL
